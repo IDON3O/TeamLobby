@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Gamepad2, Users, Menu, LogOut, Plus, Search, 
-  Sparkles, Crown, X, Save, Image as ImageIcon, Loader2
+  Sparkles, Crown, X, Save, Image as ImageIcon, Loader2, AlertTriangle
 } from 'lucide-react';
 import GameCard from './components/GameCard';
 import Chat from './components/Chat';
@@ -13,6 +13,7 @@ import {
     createRoom, joinRoom, subscribeToRoom, addGameToRoom, 
     voteForGame, sendChatMessage, toggleUserReadyState, removeGameFromRoom 
 } from './services/roomService';
+import { db } from './firebaseConfig';
 
 const App: React.FC = () => {
   // --- State ---
@@ -42,6 +43,7 @@ const App: React.FC = () => {
   const [isLoadingRecs, setIsLoadingRecs] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [dbError, setDbError] = useState(false);
   
   // Inputs
   const [joinCode, setJoinCode] = useState('');
@@ -57,11 +59,13 @@ const App: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Check Connection
+  useEffect(() => {
+      if (!db) setDbError(true);
+  }, []);
+
   // --- Realtime Subscription ---
   useEffect(() => {
-      // Si estamos en una sala (tenemos un código), nos suscribimos a los cambios
-      // Pero si room es null, no hacemos nada o limpiamos.
-      // Usaremos una variable ref para guardar el código activo y evitar loops
       if (room?.code) {
           const unsubscribe = subscribeToRoom(room.code, (updatedRoom) => {
               setRoom(updatedRoom);
@@ -93,10 +97,10 @@ const App: React.FC = () => {
   // --- Actions ---
 
   const handleCreateRoom = async () => {
+    if (!db) return alert("Firebase not connected. Check console.");
     setIsCreatingRoom(true);
     try {
         const code = await createRoom(currentUser);
-        // La suscripción en useEffect se encargará de traer los datos
         setRoom({ code, hostId: currentUser.id, members: [currentUser], gameQueue: [], chatHistory: [] });
         setView('LOBBY');
     } catch (e) {
@@ -109,12 +113,20 @@ const App: React.FC = () => {
 
   const handleJoinRoom = async () => {
     if (!joinCode) return;
+    if (!db) return alert("Firebase not connected. Check console.");
     setIsJoiningRoom(true);
     const codeUpper = joinCode.toUpperCase().trim();
     try {
         const success = await joinRoom(codeUpper, currentUser);
         if (success) {
-            setRoom({ code: codeUpper } as Room); // Placeholder hasta que cargue la suscripción
+            // FIX: Initialize with empty arrays to prevent "undefined" crash before Firebase syncs
+            setRoom({ 
+                code: codeUpper, 
+                hostId: '', // Will be updated by subscription
+                members: [], 
+                gameQueue: [], 
+                chatHistory: [] 
+            } as Room); 
             setView('LOBBY');
         } else {
             alert("Room not found!");
@@ -135,13 +147,12 @@ const App: React.FC = () => {
 
   const handleVote = async (gameId: string) => {
     if (!room) return;
-    // Ahora solo pasamos el ID, la lógica de transacción está en el servicio
     await voteForGame(room.code, gameId);
   };
 
   const handleRemoveGame = async (gameId: string) => {
       if (!room) return;
-      const gameToRemove = room.gameQueue.find(g => g.id === gameId);
+      const gameToRemove = room.gameQueue?.find(g => g.id === gameId);
       if (gameToRemove) {
           await removeGameFromRoom(room.code, gameToRemove);
       }
@@ -156,7 +167,6 @@ const App: React.FC = () => {
       content: text,
       timestamp: Date.now()
     };
-    // Optimistic UI update removed in favor of realtime sync to verify it works
     await sendChatMessage(room.code, newMessage);
   };
 
@@ -164,9 +174,8 @@ const App: React.FC = () => {
     if (!room) return;
     setIsLoadingRecs(true);
     try {
-        const recs = await getGameRecommendations(room.members, room.gameQueue);
-        // Filtrar duplicados antes de añadir
-        const existingTitles = room.gameQueue.map(g => g.title.toLowerCase());
+        const recs = await getGameRecommendations(room.members || [], room.gameQueue || []);
+        const existingTitles = (room.gameQueue || []).map(g => g.title.toLowerCase());
         const newGames = recs.filter(r => !existingTitles.includes(r.title.toLowerCase()));
         
         for (const game of newGames) {
@@ -181,7 +190,6 @@ const App: React.FC = () => {
 
   const toggleReady = async () => {
       if (!room) return;
-      // Actualizar estado local inmediato para feedback
       setCurrentUser(prev => ({...prev, isReady: !prev.isReady}));
       await toggleUserReadyState(room.code, currentUser.id);
   }
@@ -218,7 +226,7 @@ const App: React.FC = () => {
             description: 'Custom added game.',
             imageUrl: finalImageUrl,
             genre: newGameGenre,
-            platforms: [Platform.PC], // Podríamos añadir selector de plataforma luego
+            platforms: [Platform.PC],
             votes: 1,
             tags: ['Custom']
         };
@@ -237,12 +245,10 @@ const App: React.FC = () => {
 
   const handleAddLibraryGame = async (game: Game) => {
       if (!room) return;
-      // Verificar si ya existe
-      if (room.gameQueue.find(g => g.title === game.title)) {
+      if (room.gameQueue?.find(g => g.title === game.title)) {
           alert("Game already in queue!");
           return;
       }
-      // Creamos una copia nueva para evitar referencia compartida y permitir votos independientes
       const gameEntry = { ...game, id: `lib-${Date.now()}-${game.id}`, votes: 1 };
       await addGameToRoom(room.code, gameEntry);
       handleNavClick('LOBBY');
@@ -254,6 +260,19 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-background text-gray-100 flex items-center justify-center p-4 overflow-hidden relative">
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
+        
+        {dbError && (
+            <div className="absolute top-4 left-0 right-0 flex justify-center z-50 px-4">
+                <div className="bg-danger/20 border border-danger text-danger px-4 py-3 rounded-xl flex items-center gap-3 max-w-lg">
+                    <AlertTriangle size={24} />
+                    <div>
+                        <p className="font-bold">Missing Firebase Configuration</p>
+                        <p className="text-sm">Please check your environment variables in Vercel/Local.</p>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="max-w-md w-full space-y-8 z-10 relative">
           <div className="text-center">
             <div className="inline-flex items-center justify-center p-3 bg-surface border border-gray-800 rounded-2xl mb-6 shadow-xl">
@@ -268,7 +287,7 @@ const App: React.FC = () => {
           <div className="bg-surface/80 backdrop-blur-md border border-gray-800 p-6 md:p-8 rounded-2xl shadow-2xl space-y-6">
             <button 
               onClick={handleCreateRoom}
-              disabled={isCreatingRoom}
+              disabled={isCreatingRoom || dbError}
               className="w-full bg-primary hover:bg-violet-600 active:scale-95 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCreatingRoom ? <Loader2 className="animate-spin" /> : <Plus size={24} />}
@@ -290,7 +309,7 @@ const App: React.FC = () => {
               />
               <button 
                 onClick={handleJoinRoom}
-                disabled={isJoiningRoom || !joinCode}
+                disabled={isJoiningRoom || !joinCode || dbError}
                 className="w-full bg-gray-800 hover:bg-gray-700 text-white py-4 rounded-xl transition-colors font-bold flex items-center justify-center gap-2 disabled:opacity-50"
               >
                  {isJoiningRoom ? <Loader2 className="animate-spin" /> : "JOIN ROOM"}
@@ -301,6 +320,11 @@ const App: React.FC = () => {
       </div>
     );
   }
+
+  // Safe checks for arrays in case of sync issues
+  const membersList = room.members || [];
+  const gameQueueList = room.gameQueue || [];
+  const chatHistoryList = room.chatHistory || [];
 
   return (
     <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans selection:bg-primary/30">
@@ -341,9 +365,9 @@ const App: React.FC = () => {
                         <span className="font-semibold">Game Library</span>
                     </button>
 
-                    <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Current Squad ({room.members.length})</div>
+                    <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Current Squad ({membersList.length})</div>
                     <div className="space-y-2">
-                        {room.members.map(member => (
+                        {membersList.map(member => (
                             <div key={member.id} className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900/30 border border-gray-800/50">
                                 <div className="relative">
                                     <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden ring-2 ring-gray-800">
@@ -381,7 +405,7 @@ const App: React.FC = () => {
 
             {/* CHAT TAB (Mobile Only) */}
             <div className={`h-full ${mobileTab === 'CHAT' && window.innerWidth < 1024 ? 'block' : 'hidden'}`}>
-                 <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMessage} onReceiveMessage={() => {}} />
+                 <Chat messages={chatHistoryList} currentUser={currentUser} onSendMessage={handleSendMessage} onReceiveMessage={() => {}} />
             </div>
         </div>
       </aside>
@@ -418,14 +442,14 @@ const App: React.FC = () => {
                             </button>
                         </div>
                         
-                        {room.gameQueue.length === 0 ? (
+                        {gameQueueList.length === 0 ? (
                              <div className="border-2 border-dashed border-gray-800 rounded-2xl p-12 text-center text-gray-500 flex flex-col items-center gap-4">
                                 <Gamepad2 size={48} className="text-gray-700" />
                                 <p>Queue is empty. Add games from the Library!</p>
                              </div>
                         ) : (
                             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
-                                {room.gameQueue.map((game) => (
+                                {gameQueueList.map((game) => (
                                     <div key={game.id} className="h-64 md:h-80">
                                         <GameCard 
                                             game={game} 
@@ -467,7 +491,7 @@ const App: React.FC = () => {
 
       {/* Desktop Chat */}
       <aside className="hidden lg:block w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
-          <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMessage} onReceiveMessage={() => {}} />
+          <Chat messages={chatHistoryList} currentUser={currentUser} onSendMessage={handleSendMessage} onReceiveMessage={() => {}} />
       </aside>
 
       {/* Modal */}

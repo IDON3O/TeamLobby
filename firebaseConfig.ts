@@ -1,14 +1,10 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/database";
 
-// Helper para acceder a variables de entorno de forma segura
+// Helper para acceder a variables de entorno en Vite
 const getEnv = (key: string) => {
-  try {
-    // @ts-ignore
-    return import.meta.env?.[key];
-  } catch (e) {
-    return undefined;
-  }
+  // @ts-ignore
+  return import.meta.env[key];
 };
 
 const firebaseConfig = {
@@ -16,7 +12,6 @@ const firebaseConfig = {
   authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN"),
   databaseURL: getEnv("VITE_FIREBASE_DATABASE_URL"), 
   projectId: getEnv("VITE_FIREBASE_PROJECT_ID"),
-  // Storage bucket eliminado para evitar conflictos de facturación
   messagingSenderId: getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
   appId: getEnv("VITE_FIREBASE_APP_ID")
 };
@@ -24,15 +19,25 @@ const firebaseConfig = {
 let app;
 let db: firebase.database.Database | undefined;
 
-try {
-    if (firebaseConfig.apiKey) {
+// Verificación de seguridad en consola (sin mostrar las claves reales)
+const isConfigured = firebaseConfig.apiKey && firebaseConfig.databaseURL;
+
+if (isConfigured) {
+    try {
         app = firebase.initializeApp(firebaseConfig);
-        db = firebase.database(); // Initialize Realtime Database
-    } else {
-        console.warn("⚠️ Firebase Config missing. Database will not work.");
+        db = firebase.database();
+        console.log("✅ Conectado a Firebase Realtime Database");
+    } catch (error) {
+        console.error("❌ Error inicializando Firebase:", error);
     }
-} catch (error) {
-    console.error("Firebase initialization error:", error);
+} else {
+    console.warn("⚠️ Faltan credenciales de Firebase.");
+    console.log("Estado de variables:", {
+        hasApiKey: !!firebaseConfig.apiKey,
+        hasDbUrl: !!firebaseConfig.databaseURL,
+        hasProjectId: !!firebaseConfig.projectId,
+        projectId: firebaseConfig.projectId // Este no es sensible, ayuda a depurar
+    });
 }
 
 export { db };

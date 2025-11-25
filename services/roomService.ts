@@ -53,12 +53,16 @@ export const joinRoom = async (code: string, user: User): Promise<boolean> => {
     // Usamos una transacción para añadir el miembro de forma segura
     await roomRef.child('members').transaction((members) => {
         if (members) {
-            const exists = members.some((m: User) => m.id === user.id);
+            // Manejo de arrays que Firebase devuelve como objetos
+            const membersArray = Array.isArray(members) ? members : Object.values(members);
+            const exists = membersArray.some((m: User) => m.id === user.id);
             if (!exists) {
-                members.push(user);
+                // Si es array, push. Si es objeto/null, recrear array.
+                if (Array.isArray(members)) members.push(user);
+                else return [...membersArray, user];
             }
         } else {
-            members = [user];
+            return [user];
         }
         return members;
     });
@@ -75,12 +79,25 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
     const listener = roomRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            // Asegurar que los arrays existan aunque estén vacíos
+            
+            // PROTECCIÓN: Firebase a veces devuelve Arrays como Objetos si las claves son numéricas no secuenciales
+            const safeMembers = data.members 
+                ? (Array.isArray(data.members) ? data.members : Object.values(data.members)) 
+                : [];
+            
+            const safeQueue = data.gameQueue 
+                ? (Array.isArray(data.gameQueue) ? data.gameQueue : Object.values(data.gameQueue)) 
+                : [];
+
+            const safeChat = data.chatHistory 
+                ? (Array.isArray(data.chatHistory) ? data.chatHistory : Object.values(data.chatHistory)) 
+                : [];
+
             const room: Room = {
                 ...data,
-                members: data.members || [],
-                gameQueue: data.gameQueue || [],
-                chatHistory: data.chatHistory || []
+                members: safeMembers,
+                gameQueue: safeQueue,
+                chatHistory: safeChat
             };
             callback(room);
         }
@@ -96,11 +113,12 @@ export const addGameToRoom = async (code: string, game: Game) => {
     
     await queueRef.transaction((queue) => {
         if (queue) {
-            queue.push(game);
+             const qArray = Array.isArray(queue) ? queue : Object.values(queue);
+             qArray.push(game);
+             return qArray;
         } else {
-            queue = [game];
+            return [game];
         }
-        return queue;
     });
 };
 
@@ -110,7 +128,8 @@ export const removeGameFromRoom = async (code: string, game: Game) => {
      
      await queueRef.transaction((queue) => {
          if (!queue) return queue;
-         return queue.filter((g: Game) => g.id !== game.id);
+         const qArray = Array.isArray(queue) ? queue : Object.values(queue);
+         return qArray.filter((g: Game) => g.id !== game.id);
      });
 }
 
@@ -122,19 +141,21 @@ export const voteForGame = async (code: string, gameId: string, _unusedQueue?: G
     await queueRef.transaction((queue) => {
         if (!queue) return queue;
 
+        // Convertir a array si firebase devolvió objeto
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue);
+        
         // Encontrar índice del juego
-        const index = queue.findIndex((g: Game) => g.id === gameId);
+        const index = qArray.findIndex((g: Game) => g.id === gameId);
         
         if (index !== -1) {
             // Incrementar voto
-            queue[index].votes = (queue[index].votes || 0) + 1;
+            qArray[index].votes = (qArray[index].votes || 0) + 1;
             
             // Reordenar la lista por votos (Descendente)
-            // Es seguro hacerlo aquí porque la transacción bloquea la escritura hasta terminar
-            queue.sort((a: Game, b: Game) => (b.votes || 0) - (a.votes || 0));
+            qArray.sort((a: Game, b: Game) => (b.votes || 0) - (a.votes || 0));
         }
         
-        return queue;
+        return qArray;
     });
 };
 
@@ -144,11 +165,12 @@ export const sendChatMessage = async (code: string, message: Message) => {
     
     await chatRef.transaction((history) => {
         if (history) {
-            history.push(message);
+            const hArray = Array.isArray(history) ? history : Object.values(history);
+            hArray.push(message);
+            return hArray;
         } else {
-            history = [message];
+            return [message];
         }
-        return history;
     });
 };
 
@@ -159,7 +181,9 @@ export const toggleUserReadyState = async (code: string, userId: string, _unused
     await membersRef.transaction((members) => {
         if (!members) return members;
         
-        return members.map((m: User) => {
+        const mArray = Array.isArray(members) ? members : Object.values(members);
+
+        return mArray.map((m: User) => {
             if (m.id === userId) return { ...m, isReady: !m.isReady };
             return m;
         });
