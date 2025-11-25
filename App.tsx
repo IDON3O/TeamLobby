@@ -135,7 +135,8 @@ const App: React.FC = () => {
 
   const handleVote = async (gameId: string) => {
     if (!room) return;
-    await voteForGame(room.code, gameId, room.gameQueue);
+    // Ahora solo pasamos el ID, la lógica de transacción está en el servicio
+    await voteForGame(room.code, gameId);
   };
 
   const handleRemoveGame = async (gameId: string) => {
@@ -182,7 +183,7 @@ const App: React.FC = () => {
       if (!room) return;
       // Actualizar estado local inmediato para feedback
       setCurrentUser(prev => ({...prev, isReady: !prev.isReady}));
-      await toggleUserReadyState(room.code, currentUser.id, room.members);
+      await toggleUserReadyState(room.code, currentUser.id);
   }
 
   const handleNavClick = (newView: ViewState) => {
@@ -206,9 +207,9 @@ const App: React.FC = () => {
 
       try {
         if (selectedFile) {
-            console.log("Starting upload...");
+            console.log("Starting upload (compressing)...");
             finalImageUrl = await uploadGameImage(selectedFile);
-            console.log("Upload success:", finalImageUrl);
+            console.log("Upload success.");
         }
 
         const newGame: Game = {

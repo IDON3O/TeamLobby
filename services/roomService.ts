@@ -114,19 +114,28 @@ export const removeGameFromRoom = async (code: string, game: Game) => {
      });
 }
 
-export const voteForGame = async (code: string, gameId: string, currentQueue: Game[]) => {
+// CORREGIDO: Uso de transacción para evitar "Race Conditions" en los votos
+export const voteForGame = async (code: string, gameId: string, _unusedQueue?: Game[]) => {
     if (!db) return;
-    
-    // Realtime DB permite actualizar toda la lista fácilmente
-    const updatedQueue = currentQueue.map(g => {
-        if (g.id === gameId) return { ...g, votes: (g.votes || 0) + 1 };
-        return g;
+    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
+
+    await queueRef.transaction((queue) => {
+        if (!queue) return queue;
+
+        // Encontrar índice del juego
+        const index = queue.findIndex((g: Game) => g.id === gameId);
+        
+        if (index !== -1) {
+            // Incrementar voto
+            queue[index].votes = (queue[index].votes || 0) + 1;
+            
+            // Reordenar la lista por votos (Descendente)
+            // Es seguro hacerlo aquí porque la transacción bloquea la escritura hasta terminar
+            queue.sort((a: Game, b: Game) => (b.votes || 0) - (a.votes || 0));
+        }
+        
+        return queue;
     });
-
-    // Ordenar por votos
-    updatedQueue.sort((a, b) => b.votes - a.votes);
-
-    await db.ref(`${ROOMS_REF}/${code}/gameQueue`).set(updatedQueue);
 };
 
 export const sendChatMessage = async (code: string, message: Message) => {
@@ -143,13 +152,16 @@ export const sendChatMessage = async (code: string, message: Message) => {
     });
 };
 
-export const toggleUserReadyState = async (code: string, userId: string, currentMembers: User[]) => {
+export const toggleUserReadyState = async (code: string, userId: string, _unusedMembers?: User[]) => {
     if (!db) return;
+    const membersRef = db.ref(`${ROOMS_REF}/${code}/members`);
     
-    const updatedMembers = currentMembers.map(m => {
-        if (m.id === userId) return { ...m, isReady: !m.isReady };
-        return m;
+    await membersRef.transaction((members) => {
+        if (!members) return members;
+        
+        return members.map((m: User) => {
+            if (m.id === userId) return { ...m, isReady: !m.isReady };
+            return m;
+        });
     });
-
-    await db.ref(`${ROOMS_REF}/${code}/members`).set(updatedMembers);
 };
