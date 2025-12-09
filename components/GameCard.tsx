@@ -1,6 +1,6 @@
 import React from 'react';
 import { Game } from '../types';
-import { ThumbsUp, Trash2, Gamepad2, Monitor, Tv, Box } from 'lucide-react';
+import { ThumbsUp, Trash2, Gamepad2, Monitor, Tv, Box, ExternalLink } from 'lucide-react';
 
 interface GameCardProps {
   game: Game;
@@ -65,7 +65,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemo
         </div>
 
         {/* Actions - Only show if voting/removing is enabled (Lobby View) */}
-        {(isVotingEnabled || canRemove) && (
+        {(isVotingEnabled || canRemove) ? (
             <div className="flex justify-between items-center mt-2 border-t border-gray-800 pt-3">
             <div className="flex items-center gap-2">
                 {canRemove && onRemove && (
@@ -77,27 +77,43 @@ const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemo
                     <Trash2 size={16} />
                 </button>
                 )}
+                {game.link && (
+                    <a 
+                        href={game.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-600 hover:text-accent hover:bg-accent/10 p-2 rounded transition-colors"
+                        title="Store Page"
+                    >
+                        <ExternalLink size={16} />
+                    </a>
+                )}
             </div>
             
-            {isVotingEnabled ? (
-                <button 
-                    onClick={() => onVote(game.id)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 touch-manipulation ${
-                    hasVoted 
-                        ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]' 
-                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-                    }`}
-                >
-                    <ThumbsUp size={16} className={hasVoted ? 'fill-current' : ''} />
-                    <span>{votes}</span>
-                </button>
-            ) : (
-                <div className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 select-none">
+            <button 
+                onClick={() => onVote(game.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 touch-manipulation ${
+                hasVoted 
+                    ? 'bg-primary text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]' 
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+            >
+                <ThumbsUp size={16} className={hasVoted ? 'fill-current' : ''} />
+                <span>{votes}</span>
+            </button>
+            </div>
+        ) : (
+             <div className="flex justify-between items-center mt-2 border-t border-gray-800 pt-3">
+                  <div className="flex items-center">
+                    {game.link && (
+                        <a href={game.link} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white text-xs flex items-center gap-1"><ExternalLink size={12}/> Info</a>
+                    )}
+                  </div>
+                 <div className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 select-none">
                      <ThumbsUp size={16} />
                      <span>{votes}</span>
                 </div>
-            )}
-            </div>
+             </div>
         )}
       </div>
     </div>

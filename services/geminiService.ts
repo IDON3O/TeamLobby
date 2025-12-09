@@ -33,6 +33,7 @@ export const getGameRecommendations = async (
       
       Recommend 3 distinct cooperative video games that are NOT in the list above.
       They must be playable on at least one of the users' platforms.
+      Ideally, include a valid link to the Steam Store or Official site for the "link" field.
       
       Return a JSON array of objects.
     `;
@@ -50,6 +51,7 @@ export const getGameRecommendations = async (
               title: { type: Type.STRING },
               description: { type: Type.STRING },
               genre: { type: Type.STRING },
+              link: { type: Type.STRING },
               tags: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
           }
@@ -69,7 +71,9 @@ export const getGameRecommendations = async (
       genre: item.genre, 
       platforms: [Platform.PC], // Default fallback
       votedBy: [],
-      tags: item.tags || ['Co-op']
+      tags: item.tags || ['Co-op'],
+      link: item.link || `https://store.steampowered.com/search/?term=${encodeURIComponent(item.title)}`,
+      proposedBy: 'AI'
     }));
 
   } catch (error) {

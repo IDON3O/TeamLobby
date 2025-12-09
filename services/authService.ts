@@ -1,36 +1,59 @@
-import { auth, googleProvider } from "../firebaseConfig";
+import { auth, googleProvider, db } from "../firebaseConfig";
 import { User, Platform } from "../types";
 
 const ADMIN_EMAIL = "jaomp3@gmail.com";
 
-export const signInWithGoogle = async (): Promise<User | null> => {
+// Escuchar cambios de autenticación
+export const onAuthStateChange = (callback: (user: User | null) => void) => {
+    if (!auth) return () => {};
+    return auth.onAuthStateChanged(async (firebaseUser) => {
+        if (firebaseUser) {
+            // Sincronizar con DB para obtener estado de baneo/muteo actualizado
+            const userRef = db?.ref(`users/${firebaseUser.uid}`);
+            const snapshot = await userRef?.once('value');
+            const dbUser = snapshot?.val();
+
+            if (dbUser && dbUser.isBanned) {
+                // Si está baneado, forzar logout visual (o manejar en UI)
+                const bannedUser: User = { ...dbUser, id: firebaseUser.uid };
+                callback(bannedUser);
+                return;
+            }
+
+            const isAdmin = firebaseUser.email === ADMIN_EMAIL;
+            const user: User = {
+                id: firebaseUser.uid,
+                alias: firebaseUser.displayName || "Gamer",
+                email: firebaseUser.email || "",
+                avatarUrl: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+                platforms: dbUser?.platforms || [Platform.PC],
+                isReady: false,
+                isGuest: false,
+                isAdmin: isAdmin,
+                isBanned: dbUser?.isBanned || false,
+                isMuted: dbUser?.isMuted || false
+            };
+            
+            // Actualizar registro de usuario en DB global
+            await userRef?.update({
+                alias: user.alias,
+                email: user.email,
+                avatarUrl: user.avatarUrl,
+                isAdmin,
+                lastLogin: Date.now()
+            });
+
+            callback(user);
+        } else {
+            callback(null);
+        }
+    });
+};
+
+export const signInWithGoogle = async (): Promise<void> => {
     if (!auth || !googleProvider) throw new Error("Auth not initialized");
-    
-    try {
-        const result = await auth.signInWithPopup(googleProvider);
-        const fbUser = result.user;
-        
-        if (!fbUser) return null;
-
-        const isAdmin = fbUser.email === ADMIN_EMAIL;
-
-        // Mapear usuario de Firebase a nuestro tipo User
-        const newUser: User = {
-            id: fbUser.uid,
-            alias: fbUser.displayName || "Gamer",
-            email: fbUser.email || "",
-            avatarUrl: fbUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fbUser.uid}`,
-            platforms: [Platform.PC], // Default
-            isReady: false,
-            isGuest: false,
-            isAdmin: isAdmin
-        };
-
-        return newUser;
-    } catch (error) {
-        console.error("Login failed", error);
-        throw error;
-    }
+    await auth.setPersistence(JSON.stringify({ type: 'LOCAL' })); // Asegurar persistencia local
+    await auth.signInWithPopup(googleProvider);
 };
 
 export const logout = async () => {

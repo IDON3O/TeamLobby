@@ -17,13 +17,15 @@ export enum GameGenre {
 export interface User {
   id: string;
   alias: string;
-  email?: string; // Para identificar usuarios logueados
+  email?: string; 
   avatarUrl: string;
   platforms: Platform[];
   availableUntil?: string; 
   isReady: boolean;
-  isGuest?: boolean; // Flag para invitados
-  isAdmin?: boolean; // Flag para administrador
+  isGuest?: boolean; 
+  isAdmin?: boolean; 
+  isBanned?: boolean; // Nuevo: Para bloquear acceso
+  isMuted?: boolean;  // Nuevo: Para bloquear chat
 }
 
 export interface Game {
@@ -33,8 +35,10 @@ export interface Game {
   imageUrl: string;
   genre: GameGenre;
   platforms: Platform[];
-  votedBy: string[]; // Array de UserIDs para evitar votos dobles
+  votedBy: string[]; 
   tags: string[];
+  link?: string; // Nuevo: Enlace a Steam/Tienda
+  proposedBy?: string; // Nuevo: ID del usuario que lo propuso
 }
 
 export interface Message {
@@ -48,11 +52,22 @@ export interface Message {
 
 export interface Room {
   code: string;
+  name?: string; // Nuevo: Nombre legible de la sala
+  isPrivate?: boolean; // Nuevo: Sala con contraseña
+  password?: string; // Nuevo: Contraseña simple
   hostId: string;
   members: User[];
   gameQueue: Game[];
   chatHistory: Message[];
   activeGameId?: string;
+  createdAt: number; // Nuevo: Para ordenar historial
 }
 
-export type ViewState = 'HOME' | 'LOBBY' | 'LIBRARY' | 'PROFILE';
+export interface RoomSummary {
+  code: string;
+  name: string;
+  lastVisited: number;
+  hostAlias: string;
+}
+
+export type ViewState = 'HOME' | 'LOBBY' | 'LIBRARY' | 'PROFILE' | 'ADMIN';
