@@ -4,10 +4,11 @@ import { ThumbsUp, Trash2, Gamepad2, Monitor, Tv, Box } from 'lucide-react';
 
 interface GameCardProps {
   game: Game;
+  currentUserId: string;
   onVote: (id: string) => void;
   onRemove?: (id: string) => void;
   isVotingEnabled: boolean;
-  hasVoted?: boolean;
+  canRemove: boolean;
 }
 
 const PlatformIcon = ({ p }: { p: string }) => {
@@ -18,16 +19,28 @@ const PlatformIcon = ({ p }: { p: string }) => {
   return null;
 };
 
-const GameCard: React.FC<GameCardProps> = ({ game, onVote, onRemove, isVotingEnabled, hasVoted }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemove, isVotingEnabled, canRemove }) => {
+  
+  const votes = game.votedBy ? game.votedBy.length : 0;
+  const hasVoted = game.votedBy ? game.votedBy.includes(currentUserId) : false;
+
   return (
-    <div className="group relative bg-surface border border-gray-800 rounded-xl overflow-hidden hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-primary/10 flex flex-col h-full select-none">
+    <div className={`group relative bg-surface border rounded-xl overflow-hidden transition-all duration-300 shadow-lg flex flex-col h-full select-none ${hasVoted ? 'border-primary shadow-primary/20' : 'border-gray-800 hover:border-primary/50'}`}>
       {/* Image Header */}
-      <div className="relative h-36 w-full overflow-hidden shrink-0">
-        <img 
-          src={game.imageUrl} 
-          alt={game.title} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-        />
+      <div className="relative h-36 w-full overflow-hidden shrink-0 bg-gray-900 flex items-center justify-center">
+        {game.imageUrl ? (
+            <img 
+            src={game.imageUrl} 
+            alt={game.title} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+            />
+        ) : (
+            <div className="flex flex-col items-center justify-center text-gray-700 group-hover:text-gray-500 transition-colors">
+                <Gamepad2 size={48} className="mb-2" strokeWidth={1.5} />
+                <span className="text-[10px] uppercase font-bold tracking-widest">No Cover</span>
+            </div>
+        )}
+        
         <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent opacity-90" />
         <div className="absolute bottom-2 left-3 right-3">
           <h3 className="text-base font-bold text-white leading-tight truncate">{game.title}</h3>
@@ -52,10 +65,10 @@ const GameCard: React.FC<GameCardProps> = ({ game, onVote, onRemove, isVotingEna
         </div>
 
         {/* Actions - Only show if voting/removing is enabled (Lobby View) */}
-        {(isVotingEnabled || onRemove) && (
+        {(isVotingEnabled || canRemove) && (
             <div className="flex justify-between items-center mt-2 border-t border-gray-800 pt-3">
             <div className="flex items-center gap-2">
-                {onRemove && (
+                {canRemove && onRemove && (
                 <button 
                     onClick={(e) => { e.stopPropagation(); onRemove(game.id); }}
                     className="text-gray-600 hover:text-danger hover:bg-danger/10 p-2 rounded transition-colors touch-manipulation"
@@ -66,7 +79,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, onVote, onRemove, isVotingEna
                 )}
             </div>
             
-            {isVotingEnabled && (
+            {isVotingEnabled ? (
                 <button 
                     onClick={() => onVote(game.id)}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 touch-manipulation ${
@@ -76,8 +89,13 @@ const GameCard: React.FC<GameCardProps> = ({ game, onVote, onRemove, isVotingEna
                     }`}
                 >
                     <ThumbsUp size={16} className={hasVoted ? 'fill-current' : ''} />
-                    <span>{game.votes}</span>
+                    <span>{votes}</span>
                 </button>
+            ) : (
+                <div className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-600 select-none">
+                     <ThumbsUp size={16} />
+                     <span>{votes}</span>
+                </div>
             )}
             </div>
         )}

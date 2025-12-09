@@ -12,7 +12,6 @@ const getApiKey = () => {
 }
 
 const apiKey = getApiKey();
-// Initialize only if key exists to avoid immediate crash, handle call errors later
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const getGameRecommendations = async (
@@ -60,15 +59,16 @@ export const getGameRecommendations = async (
 
     const rawData = JSON.parse(response.text || '[]');
     
-    // Map response to Game interface (generating IDs and mock images)
+    // Map response to Game interface 
     return rawData.map((item: any, index: number) => ({
       id: `rec-${Date.now()}-${index}`,
       title: item.title,
       description: item.description,
-      imageUrl: `https://picsum.photos/400/225?random=${100 + index}`,
-      genre: item.genre, // Simple mapping, might need adjustment
+      // Defaulting to empty to trigger Icon Fallback in UI
+      imageUrl: "", 
+      genre: item.genre, 
       platforms: [Platform.PC], // Default fallback
-      votes: 0,
+      votedBy: [],
       tags: item.tags || ['Co-op']
     }));
 

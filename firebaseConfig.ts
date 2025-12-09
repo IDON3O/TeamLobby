@@ -1,5 +1,6 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/database";
+import "firebase/compat/auth";
 
 // Helper para acceder a variables de entorno en Vite
 const getEnv = (key: string) => {
@@ -8,7 +9,7 @@ const getEnv = (key: string) => {
 };
 
 const firebaseConfig = {
-  apiKey: getEnv("VITE_FIREBASE_API_KEY"),
+  apiKey: getEnv("VITE_FIREBASE_API_KEY") || getEnv("VITE_APP_FIREBASE_API_KEY"),
   authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN"),
   databaseURL: getEnv("VITE_FIREBASE_DATABASE_URL"), 
   projectId: getEnv("VITE_FIREBASE_PROJECT_ID"),
@@ -18,6 +19,8 @@ const firebaseConfig = {
 
 let app;
 let db: firebase.database.Database | undefined;
+let auth: firebase.auth.Auth | undefined;
+let googleProvider: firebase.auth.GoogleAuthProvider | undefined;
 
 // Verificación de seguridad en consola (sin mostrar las claves reales)
 const isConfigured = firebaseConfig.apiKey && firebaseConfig.databaseURL;
@@ -26,19 +29,19 @@ if (isConfigured) {
     try {
         app = firebase.initializeApp(firebaseConfig);
         db = firebase.database();
-        console.log("✅ Conectado a Firebase Realtime Database");
+        auth = firebase.auth();
+        googleProvider = new firebase.auth.GoogleAuthProvider();
+        console.log("✅ Conectado a Firebase (Database + Auth)");
     } catch (error) {
         console.error("❌ Error inicializando Firebase:", error);
     }
 } else {
     console.warn("⚠️ Faltan credenciales de Firebase.");
-    console.log("Estado de variables:", {
-        hasApiKey: !!firebaseConfig.apiKey,
-        hasDbUrl: !!firebaseConfig.databaseURL,
-        hasProjectId: !!firebaseConfig.projectId,
-        projectId: firebaseConfig.projectId // Este no es sensible, ayuda a depurar
+    console.log("[Firebase Config Check]", {
+        apiKey: !!firebaseConfig.apiKey ? "OK" : "MISSING",
+        databaseURL: !!firebaseConfig.databaseURL ? "OK" : "MISSING"
     });
 }
 
-export { db };
+export { db, auth, googleProvider };
 export default app;

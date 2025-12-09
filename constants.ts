@@ -8,7 +8,7 @@ export const MOCK_GAMES: Game[] = [
     imageUrl: 'https://picsum.photos/400/225?random=1',
     genre: GameGenre.FPS,
     platforms: [Platform.PC, Platform.XBOX, Platform.PS5],
-    votes: 0,
+    votedBy: [],
     tags: ['Co-op', 'Sci-fi', 'Destruction']
   },
   {
@@ -18,7 +18,7 @@ export const MOCK_GAMES: Game[] = [
     imageUrl: 'https://picsum.photos/400/225?random=2',
     genre: GameGenre.PUZZLE,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX, Platform.SWITCH],
-    votes: 0,
+    votedBy: [],
     tags: ['Story Rich', 'Puzzle', 'Split Screen']
   },
   {
@@ -28,7 +28,7 @@ export const MOCK_GAMES: Game[] = [
     imageUrl: 'https://picsum.photos/400/225?random=3',
     genre: GameGenre.SURVIVAL,
     platforms: [Platform.PC, Platform.XBOX],
-    votes: 0,
+    votedBy: [],
     tags: ['Survival', 'Open World', 'Viking']
   },
   {
@@ -38,7 +38,7 @@ export const MOCK_GAMES: Game[] = [
     imageUrl: 'https://picsum.photos/400/225?random=4',
     genre: GameGenre.RPG,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX],
-    votes: 0,
+    votedBy: [],
     tags: ['RPG', 'Story', 'D&D']
   },
   {
@@ -48,7 +48,7 @@ export const MOCK_GAMES: Game[] = [
     imageUrl: 'https://picsum.photos/400/225?random=5',
     genre: GameGenre.STRATEGY,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX, Platform.SWITCH],
-    votes: 0,
+    votedBy: [],
     tags: ['Chaos', 'Family', 'Funny']
   }
 ];
@@ -58,5 +58,6 @@ export const INITIAL_USER: User = {
   alias: 'PlayerOne',
   avatarUrl: 'https://picsum.photos/64/64?random=100',
   platforms: [Platform.PC],
-  isReady: false
+  isReady: false,
+  isGuest: true
 };

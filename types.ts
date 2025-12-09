@@ -17,10 +17,13 @@ export enum GameGenre {
 export interface User {
   id: string;
   alias: string;
+  email?: string; // Para identificar usuarios logueados
   avatarUrl: string;
   platforms: Platform[];
-  availableUntil?: string; // ISO date string
+  availableUntil?: string; 
   isReady: boolean;
+  isGuest?: boolean; // Flag para invitados
+  isAdmin?: boolean; // Flag para administrador
 }
 
 export interface Game {
@@ -30,7 +33,7 @@ export interface Game {
   imageUrl: string;
   genre: GameGenre;
   platforms: Platform[];
-  votes: number;
+  votedBy: string[]; // Array de UserIDs para evitar votos dobles
   tags: string[];
 }
 
