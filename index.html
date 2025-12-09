@@ -2,9 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TeamLobby</title>
-    <meta name="description" content="Gamer Hub for Cooperative Play">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TeamLobby - Gamer Hub</title>
+    <meta name="description" content="Join cooperative gaming sessions, vote on games, and get AI recommendations with TeamLobby.">
+    
+    <!-- PWA & Mobile -->
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TeamLobby">
+
+    <!-- Open Graph / Social Sharing (Discord, WhatsApp, Twitter) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TeamLobby - Squad Up & Vote" />
+    <meta property="og:description" content="The minimalist hub for cooperative gamers. Join a room, vote for the next game, and chat with your squad." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop" />
+    <meta property="og:url" content="https://teamlobby.app/" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TeamLobby - Gamer Hub" />
+    <meta name="twitter:description" content="Manage your gaming sessions with AI recommendations." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop" />
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
   <script type="importmap">
 {
@@ -12,6 +32,8 @@
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@6.22.3",
+    "@remix-run/router": "https://aistudiocdn.com/@remix-run/router@1.15.3",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",

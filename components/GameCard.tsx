@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Game } from '../types';
-import { ThumbsUp, Trash2, Gamepad2, Monitor, Tv, Box, ExternalLink } from 'lucide-react';
+import { ThumbsUp, Trash2, Gamepad2, Monitor, Tv, Box, ExternalLink, ImageOff } from 'lucide-react';
 
 interface GameCardProps {
   game: Game;
@@ -20,7 +20,7 @@ const PlatformIcon = ({ p }: { p: string }) => {
 };
 
 const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemove, isVotingEnabled, canRemove }) => {
-  
+  const [imgError, setImgError] = useState(false);
   const votes = game.votedBy ? game.votedBy.length : 0;
   const hasVoted = game.votedBy ? game.votedBy.includes(currentUserId) : false;
 
@@ -28,16 +28,17 @@ const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemo
     <div className={`group relative bg-surface border rounded-xl overflow-hidden transition-all duration-300 shadow-lg flex flex-col h-full select-none ${hasVoted ? 'border-primary shadow-primary/20' : 'border-gray-800 hover:border-primary/50'}`}>
       {/* Image Header */}
       <div className="relative h-36 w-full overflow-hidden shrink-0 bg-gray-900 flex items-center justify-center">
-        {game.imageUrl ? (
+        {game.imageUrl && !imgError ? (
             <img 
             src={game.imageUrl} 
             alt={game.title} 
+            onError={() => setImgError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
             />
         ) : (
             <div className="flex flex-col items-center justify-center text-gray-700 group-hover:text-gray-500 transition-colors">
-                <Gamepad2 size={48} className="mb-2" strokeWidth={1.5} />
-                <span className="text-[10px] uppercase font-bold tracking-widest">No Cover</span>
+                {imgError ? <ImageOff size={32} className="mb-2"/> : <Gamepad2 size={48} className="mb-2" strokeWidth={1.5} />}
+                <span className="text-[10px] uppercase font-bold tracking-widest">{imgError ? "Broken Link" : "No Cover"}</span>
             </div>
         )}
         
@@ -64,7 +65,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemo
             </div>
         </div>
 
-        {/* Actions - Only show if voting/removing is enabled (Lobby View) */}
+        {/* Actions */}
         {(isVotingEnabled || canRemove) ? (
             <div className="flex justify-between items-center mt-2 border-t border-gray-800 pt-3">
             <div className="flex items-center gap-2">
