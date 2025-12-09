@@ -11,6 +11,7 @@ import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
 import Chat from '../components/Chat';
 import GameCard from '../components/GameCard';
+import { useLanguage } from '../services/i18n';
 
 interface LobbyProps {
     currentUser: User;
@@ -19,6 +20,7 @@ interface LobbyProps {
 const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const { code } = useParams();
     const navigate = useNavigate();
+    const { t } = useLanguage();
     const [room, setRoom] = useState<Room | null>(null);
     const [view, setView] = useState<ViewState>('LOBBY');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -40,7 +42,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         if (code) {
             const unsubscribe = subscribeToRoom(code, (updatedRoom) => {
                 if (!updatedRoom) {
-                    alert("Room does not exist.");
+                    alert(t('lobby.roomNotExist'));
                     navigate('/');
                     return;
                 }
@@ -48,11 +50,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             });
             return () => unsubscribe();
         }
-    }, [code, navigate]);
+    }, [code, navigate, t]);
 
     // Handlers
     const handleLeave = () => navigate('/');
-    const copyCode = () => { navigator.clipboard.writeText(code || ''); alert("Copied!"); };
+    const copyCode = () => { navigator.clipboard.writeText(code || ''); alert(t('lobby.copied')); };
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
     const handleRemove = (id: string) => room && removeGameFromRoom(room.code, id, currentUser.id, !!currentUser.isAdmin);
     const handleSendMsg = (txt: string) => room && !currentUser.isMuted && sendChatMessage(room.code, {
@@ -107,7 +109,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             setIsGameModalOpen(false);
             setNewGameTitle(''); setNewGameLink(''); setNewGameImageUrl(''); setPreviewUrl(null); setSelectedFile(null);
             setView('LOBBY');
-        } catch(e) { alert("Error adding game"); } finally { setIsUploading(false); }
+        } catch(e) { alert(t('common.error')); } finally { setIsUploading(false); }
     };
 
     const handleAddLibrary = async (game: Game) => {
@@ -138,20 +140,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="flex lg:hidden border-b border-gray-800">
-                    <button onClick={() => setMobileTab('MENU')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'MENU' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>MENU</button>
-                    <button onClick={() => setMobileTab('CHAT')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'CHAT' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>CHAT</button>
+                    <button onClick={() => setMobileTab('MENU')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'MENU' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>{t('lobby.menu')}</button>
+                    <button onClick={() => setMobileTab('CHAT')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'CHAT' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>{t('lobby.chat')}</button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto relative">
                     <div className={`flex-col h-full ${mobileTab === 'MENU' || window.innerWidth >= 1024 ? 'flex' : 'hidden'}`}>
                          <div className="flex-1 py-6 px-4 space-y-2">
                             <button onClick={() => { setView('LOBBY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'LOBBY' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <Users size={20}/> <span className="font-semibold">Lobby</span>
+                                <Users size={20}/> <span className="font-semibold">{t('lobby.viewLobby')}</span>
                             </button>
                             <button onClick={() => { setView('LIBRARY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'LIBRARY' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <Gamepad2 size={20}/> <span className="font-semibold">Library</span>
+                                <Gamepad2 size={20}/> <span className="font-semibold">{t('lobby.viewLibrary')}</span>
                             </button>
-                            <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase">Squad ({members.length})</div>
+                            <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase">{t('lobby.squad')} ({members.length})</div>
                             {members.map(m => (
                                 <div key={m.id} className="flex items-center gap-3 px-4 py-2 bg-gray-900/30 border border-gray-800/50 rounded-lg">
                                     <div className="relative">
@@ -170,11 +172,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-full"/>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold truncate">{currentUser.alias}</p>
-                                    <p className="text-xs text-gray-500">{currentUser.isReady ? 'Ready' : 'Not Ready'}</p>
+                                    <p className="text-xs text-gray-500">{currentUser.isReady ? t('lobby.ready') : t('lobby.notReady')}</p>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={handleReady} className={`py-2 rounded-lg text-xs font-bold ${currentUser.isReady ? 'bg-green-500' : 'bg-gray-800'}`}>{currentUser.isReady ? 'READY' : 'SET READY'}</button>
+                                <button onClick={handleReady} className={`py-2 rounded-lg text-xs font-bold ${currentUser.isReady ? 'bg-green-500' : 'bg-gray-800'}`}>{currentUser.isReady ? t('lobby.ready') : t('lobby.setReady')}</button>
                                 <button onClick={handleLeave} className="py-2 rounded-lg bg-gray-800 hover:bg-danger/20 text-gray-400 hover:text-danger"><LogOut size={16} className="mx-auto"/></button>
                             </div>
                          </div>
@@ -199,19 +201,19 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         </div>
                     </div>
-                    {!currentUser.isGuest && <button onClick={() => setIsGameModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-violet-600 rounded-lg text-sm font-bold"><Plus size={16}/> <span className="hidden md:inline">Add Game</span></button>}
+                    {!currentUser.isGuest && <button onClick={() => setIsGameModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-violet-600 rounded-lg text-sm font-bold"><Plus size={16}/> <span className="hidden md:inline">{t('lobby.addGame')}</span></button>}
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-4 lg:p-8">
                     {view === 'LOBBY' ? (
                         <div className="space-y-8">
                             <div className="flex justify-between items-center">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Crown size={16} className="text-yellow-500"/> Voted Games</h3>
-                                {!currentUser.isGuest && <button onClick={handleRecommendations} disabled={isLoadingRecs} className="text-xs font-bold text-accent flex items-center gap-1">{isLoadingRecs ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>} AI SUGGEST</button>}
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Crown size={16} className="text-yellow-500"/> {t('lobby.votedGames')}</h3>
+                                {!currentUser.isGuest && <button onClick={handleRecommendations} disabled={isLoadingRecs} className="text-xs font-bold text-accent flex items-center gap-1">{isLoadingRecs ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>} {t('lobby.aiSuggest')}</button>}
                             </div>
                             {queue.length === 0 ? (
                                 <div className="border-2 border-dashed border-gray-800 rounded-2xl p-12 text-center text-gray-500 flex flex-col items-center gap-4">
-                                    <Gamepad2 size={48}/> <p>Queue is empty. Add from Library!</p>
+                                    <Gamepad2 size={48}/> <p>{t('lobby.queueEmpty')}</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -226,13 +228,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     ) : (
                         <div className="space-y-6">
                             <div className="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-800 max-w-md">
-                                <Search size={18} className="text-gray-500 ml-2"/><input type="text" placeholder="Search library..." className="bg-transparent border-none outline-none text-sm w-full text-gray-300"/>
+                                <Search size={18} className="text-gray-500 ml-2"/><input type="text" placeholder={t('lobby.searchLib')} className="bg-transparent border-none outline-none text-sm w-full text-gray-300"/>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {MOCK_GAMES.map(g => (
                                     <div key={g.id} className="h-64 opacity-75 hover:opacity-100">
                                         <GameCard game={g} currentUserId={currentUser.id} onVote={()=>{}} isVotingEnabled={false} canRemove={false}/>
-                                        {!currentUser.isGuest && <button onClick={() => handleAddLibrary(g)} className="w-full mt-2 py-2 bg-gray-800 hover:bg-primary text-xs font-bold rounded border border-gray-700">ADD TO QUEUE</button>}
+                                        {!currentUser.isGuest && <button onClick={() => handleAddLibrary(g)} className="w-full mt-2 py-2 bg-gray-800 hover:bg-primary text-xs font-bold rounded border border-gray-700">{t('lobby.addToQueue')}</button>}
                                     </div>
                                 ))}
                             </div>
@@ -250,37 +252,37 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="bg-surface border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
                         <div className="p-4 border-b border-gray-700 flex justify-between bg-gray-900/50">
-                            <h3 className="font-bold flex gap-2"><Plus size={18} className="text-primary"/> Add Game</h3>
+                            <h3 className="font-bold flex gap-2"><Plus size={18} className="text-primary"/> {t('lobby.modalTitle')}</h3>
                             <button onClick={() => setIsGameModalOpen(false)}><X size={20}/></button>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase">Cover Image (Upload or URL)</label>
+                                <label className="text-xs font-bold text-gray-400 uppercase">{t('lobby.coverImage')}</label>
                                 <div className="space-y-2">
                                      <div onClick={() => fileInputRef.current?.click()} className="relative h-32 w-full rounded-xl border-2 border-dashed border-gray-700 hover:border-primary hover:bg-gray-800/50 flex flex-col items-center justify-center cursor-pointer overflow-hidden">
                                         {(previewUrl || newGameImageUrl) ? (
                                             <img src={previewUrl || newGameImageUrl} className="w-full h-full object-cover"/>
                                         ) : (
-                                            <><ImageIcon className="text-gray-600 mb-2"/><span className="text-xs text-gray-500">Upload Image</span></>
+                                            <><ImageIcon className="text-gray-600 mb-2"/><span className="text-xs text-gray-500">{t('lobby.uploadImg')}</span></>
                                         )}
                                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect}/>
                                      </div>
                                      <div className="flex items-center gap-2">
                                          <LinkIcon size={14} className="text-gray-500"/>
-                                         <input type="text" value={newGameImageUrl} onChange={e => { setNewGameImageUrl(e.target.value); setPreviewUrl(null); }} placeholder="Or paste image URL..." className="flex-1 bg-black/50 border border-gray-700 rounded px-2 py-1 text-xs"/>
+                                         <input type="text" value={newGameImageUrl} onChange={e => { setNewGameImageUrl(e.target.value); setPreviewUrl(null); }} placeholder={t('lobby.pasteUrl')} className="flex-1 bg-black/50 border border-gray-700 rounded px-2 py-1 text-xs"/>
                                      </div>
                                 </div>
                             </div>
-                            <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} placeholder="Game Title" className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
-                            <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} placeholder="Store URL (Optional)" className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+                            <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} placeholder={t('lobby.gameTitle')} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
+                            <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} placeholder={t('lobby.storeUrl')} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
                             <select value={newGameGenre} onChange={e => setNewGameGenre(e.target.value as GameGenre)} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">
                                 {Object.values(GameGenre).map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
                         </div>
                         <div className="p-4 bg-gray-900/50 flex justify-end gap-2">
-                            <button onClick={() => setIsGameModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800">Cancel</button>
+                            <button onClick={() => setIsGameModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800">{t('common.cancel')}</button>
                             <button onClick={handleAddGame} disabled={isUploading || !newGameTitle} className="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-white flex items-center gap-2">
-                                {isUploading ? "Uploading..." : <><Save size={16}/> Save</>}
+                                {isUploading ? t('lobby.uploading') : <><Save size={16}/> {t('common.save')}</>}
                             </button>
                         </div>
                     </div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gamepad2, LogOut, ShieldCheck, Plus, Clock, Loader2, Ban } from 'lucide-react';
+import { Gamepad2, LogOut, ShieldCheck, Plus, Clock, Loader2, Ban, Languages } from 'lucide-react';
 import { User, RoomSummary } from '../types';
 import { createRoom, joinRoom, getUserRooms } from '../services/roomService';
 import { logout } from '../services/authService';
+import { useLanguage } from '../services/i18n';
 
 interface HomeProps {
     currentUser: User;
@@ -11,6 +12,7 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ currentUser }) => {
     const navigate = useNavigate();
+    const { t, language, setLanguage } = useLanguage();
     const [joinCode, setJoinCode] = useState('');
     const [joinPassword, setJoinPassword] = useState('');
     const [showPasswordInput, setShowPasswordInput] = useState(false);
@@ -37,15 +39,15 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
     };
 
     const handleCreateRoom = async () => {
-        if (!newRoomName.trim()) return alert("Room name required");
-        if (isRoomPrivate && !newRoomPassword) return alert("Password required");
+        if (!newRoomName.trim()) return alert(t('common.error'));
+        if (isRoomPrivate && !newRoomPassword) return alert(t('home.password') + " required");
         
         setIsCreatingRoom(true);
         try {
             const code = await createRoom(currentUser, newRoomName, isRoomPrivate ? newRoomPassword : undefined);
             navigate(`/room/${code}`);
         } catch(e) {
-            alert("Error creating room");
+            alert(t('common.error'));
         } finally {
             setIsCreatingRoom(false);
         }
@@ -60,12 +62,12 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 navigate(`/room/${joinCode.toUpperCase()}`);
             } else if (result.message === "Invalid Password") {
                 setShowPasswordInput(true);
-                alert("Password required");
+                alert(t('home.password') + " required");
             } else {
                 alert(result.message);
             }
         } catch (e) {
-            alert("Connection error");
+            alert(t('common.error'));
         } finally {
             setIsJoiningRoom(false);
         }
@@ -75,7 +77,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-danger p-6 text-center">
             <Ban size={64} className="mb-4" />
             <h1 className="text-3xl font-bold mb-2">ACCESS DENIED</h1>
-            <button onClick={handleLogout} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded">Sign Out</button>
+            <button onClick={handleLogout} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded">{t('home.signOut')}</button>
         </div>
     );
 
@@ -89,9 +91,12 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                     <Gamepad2 className="text-primary"/> TeamLobby
                 </h1>
                 <div className="flex items-center gap-3">
+                    <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="p-2 text-gray-500 hover:text-white">
+                        <Languages size={18}/>
+                    </button>
                     {currentUser.isAdmin && (
                         <button onClick={() => navigate('/admin')} className="px-3 py-1.5 bg-yellow-600/20 text-yellow-500 border border-yellow-600/50 rounded-lg text-sm font-bold flex items-center gap-2">
-                            <ShieldCheck size={16}/> Admin
+                            <ShieldCheck size={16}/> {t('home.admin')}
                         </button>
                     )}
                     <div className="flex items-center gap-3 bg-surface/50 border border-gray-800 pr-4 pl-2 py-1.5 rounded-full">
@@ -108,37 +113,37 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 {/* Create / Join */}
                 <div className="bg-surface/80 backdrop-blur-md border border-gray-800 p-6 md:p-8 rounded-2xl shadow-2xl space-y-6 h-fit">
                     <div className="text-center mb-6">
-                        <h2 className="text-2xl font-bold">Get Started</h2>
-                        <p className="text-gray-400 text-sm">Join a squad or start your own.</p>
+                        <h2 className="text-2xl font-bold">{t('home.getStarted')}</h2>
+                        <p className="text-gray-400 text-sm">{t('home.subHeader')}</p>
                     </div>
 
                     {!currentUser.isGuest ? (
                         <button onClick={() => setShowCreateModal(true)} className="w-full bg-primary hover:bg-violet-600 active:scale-95 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/25">
-                            <Plus size={24} /> CREATE SQUAD
+                            <Plus size={24} /> {t('home.createBtn')}
                         </button>
                     ) : (
-                        <div className="p-3 bg-gray-900/50 border border-gray-800 rounded-xl text-center text-gray-500 text-sm">Guest Login Mode</div>
+                        <div className="p-3 bg-gray-900/50 border border-gray-800 rounded-xl text-center text-gray-500 text-sm">{t('home.guestMode')}</div>
                     )}
 
                     <div className="relative py-2">
                         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-800"></div></div>
-                        <div className="relative flex justify-center text-xs font-bold tracking-widest"><span className="px-4 bg-surface text-gray-600">OR JOIN</span></div>
+                        <div className="relative flex justify-center text-xs font-bold tracking-widest"><span className="px-4 bg-surface text-gray-600">{t('home.joinOr')}</span></div>
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        <input type="text" placeholder="ENTER CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl px-4 py-4 text-center tracking-widest font-mono text-lg uppercase focus:border-accent outline-none" />
+                        <input type="text" placeholder={t('home.enterCode')} value={joinCode} onChange={(e) => setJoinCode(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl px-4 py-4 text-center tracking-widest font-mono text-lg uppercase focus:border-accent outline-none" />
                         {showPasswordInput && (
-                            <input type="password" placeholder="Password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl px-4 py-3 text-center text-white focus:border-danger outline-none" />
+                            <input type="password" placeholder={t('home.password')} value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded-xl px-4 py-3 text-center text-white focus:border-danger outline-none" />
                         )}
                         <button onClick={handleJoinRoom} disabled={isJoiningRoom || !joinCode} className="w-full bg-gray-800 hover:bg-gray-700 text-white py-4 rounded-xl transition-colors font-bold flex items-center justify-center gap-2">
-                            {isJoiningRoom ? <Loader2 className="animate-spin" /> : "JOIN ROOM"}
+                            {isJoiningRoom ? <Loader2 className="animate-spin" /> : t('home.joinBtn')}
                         </button>
                     </div>
                 </div>
 
                 {/* History */}
                 <div className="space-y-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2 text-gray-300"><Clock size={20}/> Recent Rooms</h3>
+                    <h3 className="text-lg font-bold flex items-center gap-2 text-gray-300"><Clock size={20}/> {t('home.recent')}</h3>
                     {history.length > 0 ? (
                         <div className="space-y-3">
                             {history.map(hist => (
@@ -155,7 +160,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                             ))}
                         </div>
                     ) : (
-                        <div className="h-40 border-2 border-dashed border-gray-800 rounded-xl flex items-center justify-center text-gray-600 text-sm">No recent history.</div>
+                        <div className="h-40 border-2 border-dashed border-gray-800 rounded-xl flex items-center justify-center text-gray-600 text-sm">{t('home.noHistory')}</div>
                     )}
                 </div>
             </div>
@@ -164,24 +169,24 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="bg-surface border border-gray-700 w-full max-w-md rounded-2xl p-6 space-y-4">
-                        <h3 className="text-xl font-bold">Create New Squad</h3>
+                        <h3 className="text-xl font-bold">{t('home.modalTitle')}</h3>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase">Room Name</label>
-                            <input type="text" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white" placeholder="e.g. Friday Night Gaming"/>
+                            <label className="text-xs font-bold text-gray-500 uppercase">{t('home.roomName')}</label>
+                            <input type="text" value={newRoomName} onChange={e => setNewRoomName(e.target.value)} className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white" placeholder={t('home.roomNamePlace')}/>
                         </div>
                         <div className="flex items-center gap-3 py-2">
                             <div onClick={() => setIsRoomPrivate(!isRoomPrivate)} className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${isRoomPrivate ? 'bg-primary' : 'bg-gray-700'}`}>
                                 <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isRoomPrivate ? 'translate-x-6' : 'translate-x-0'}`}/>
                             </div>
-                            <span className="text-sm font-medium">{isRoomPrivate ? 'Private' : 'Public Room'}</span>
+                            <span className="text-sm font-medium">{isRoomPrivate ? t('home.private') : t('home.public')}</span>
                         </div>
                         {isRoomPrivate && (
-                             <input type="password" value={newRoomPassword} onChange={e => setNewRoomPassword(e.target.value)} className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white" placeholder="Secret Key"/>
+                             <input type="password" value={newRoomPassword} onChange={e => setNewRoomPassword(e.target.value)} className="w-full bg-black border border-gray-700 rounded-lg p-3 text-white" placeholder={t('home.secretKey')}/>
                         )}
                         <div className="flex gap-3 pt-4">
-                            <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-lg font-bold text-gray-400 hover:bg-gray-800">Cancel</button>
+                            <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-lg font-bold text-gray-400 hover:bg-gray-800">{t('common.cancel')}</button>
                             <button onClick={handleCreateRoom} disabled={isCreatingRoom || !newRoomName} className="flex-1 py-3 rounded-lg font-bold bg-primary text-white">
-                                {isCreatingRoom ? 'Creating...' : 'Create'}
+                                {isCreatingRoom ? t('home.creating') : t('home.create')}
                             </button>
                         </div>
                     </div>
