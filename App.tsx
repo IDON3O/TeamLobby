@@ -23,7 +23,13 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleLogin = async () => {
-      try { await signInWithGoogle(); } catch (e) { alert(t('auth.loginFailed')); }
+      try { 
+        await signInWithGoogle(); 
+      } catch (e: any) { 
+        console.error("Login Error:", e);
+        // Mostrar mensaje detallado para depuración
+        alert(`${t('auth.loginFailed')}\n\nError: ${e.message || e}`); 
+      }
   };
 
   const handleGuestLogin = () => {

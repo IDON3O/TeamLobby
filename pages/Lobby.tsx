@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Gamepad2, Users, Menu, LogOut, Plus, Search, Sparkles, Crown, X, Save, 
-  Image as ImageIcon, Loader2, ShieldCheck, Lock, Copy, MicOff, Link as LinkIcon
+  Image as ImageIcon, Loader2, ShieldCheck, Lock, Copy, MicOff, Link as LinkIcon,
+  CheckCircle2, Check
 } from 'lucide-react';
 import { Room, User, Message, Game, GameGenre, Platform, ViewState } from '../types';
 import { subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, toggleUserReadyState, removeGameFromRoom } from '../services/roomService';
@@ -153,31 +154,61 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <button onClick={() => { setView('LIBRARY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'LIBRARY' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
                                 <Gamepad2 size={20}/> <span className="font-semibold">{t('lobby.viewLibrary')}</span>
                             </button>
+                            
                             <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase">{t('lobby.squad')} ({members.length})</div>
-                            {members.map(m => (
-                                <div key={m.id} className="flex items-center gap-3 px-4 py-2 bg-gray-900/30 border border-gray-800/50 rounded-lg">
-                                    <div className="relative">
-                                        <img src={m.avatarUrl} className="w-8 h-8 rounded-full"/>
-                                        <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-surface ${m.isReady ? 'bg-green-500' : 'bg-gray-500'}`}/>
+                            
+                            <div className="space-y-2">
+                                {members.map(m => (
+                                    <div key={m.id} className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-surface border-gray-800'}`}>
+                                        <div className="relative">
+                                            <img src={m.avatarUrl} className={`w-9 h-9 rounded-full border-2 ${m.isReady ? 'border-green-500' : 'border-gray-700'}`}/>
+                                            {m.isReady && (
+                                                <div className="absolute -bottom-1 -right-1 bg-surface rounded-full p-0.5">
+                                                    <div className="bg-green-500 rounded-full p-0.5">
+                                                        <Check size={8} className="text-black" strokeWidth={4} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm font-bold truncate flex items-center gap-1.5 ${m.isReady ? 'text-white' : 'text-gray-400'}`}>
+                                                {m.alias} 
+                                                {m.isAdmin && <ShieldCheck size={12} className="text-yellow-500"/>}
+                                            </p>
+                                            <p className="text-[10px] uppercase font-bold tracking-wider text-gray-600">
+                                                {m.isReady ? <span className="text-green-500 flex items-center gap-1">READY</span> : t('lobby.notReady')}
+                                            </p>
+                                        </div>
+                                        {m.isMuted && <MicOff size={14} className="text-red-500"/>}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate flex gap-1">{m.alias} {m.isAdmin && <ShieldCheck size={12} className="text-yellow-500"/>}</p>
-                                    </div>
-                                    {m.isMuted && <MicOff size={12} className="text-red-500"/>}
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                          </div>
-                         <div className="p-4 border-t border-gray-800 bg-gray-900/80">
-                            <div className="flex items-center gap-3 mb-4 p-2 bg-black/40 rounded-lg">
-                                <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-full"/>
+                         
+                         <div className="p-4 border-t border-gray-800 bg-surface/95 backdrop-blur">
+                            <div className="flex items-center gap-3 mb-4">
+                                <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-full border border-gray-700"/>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold truncate">{currentUser.alias}</p>
-                                    <p className="text-xs text-gray-500">{currentUser.isReady ? t('lobby.ready') : t('lobby.notReady')}</p>
+                                    <p className={`text-xs font-bold ${currentUser.isReady ? 'text-green-500' : 'text-gray-500'}`}>
+                                        {currentUser.isReady ? "STATUS: READY" : "STATUS: NOT READY"}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={handleReady} className={`py-2 rounded-lg text-xs font-bold ${currentUser.isReady ? 'bg-green-500' : 'bg-gray-800'}`}>{currentUser.isReady ? t('lobby.ready') : t('lobby.setReady')}</button>
-                                <button onClick={handleLeave} className="py-2 rounded-lg bg-gray-800 hover:bg-danger/20 text-gray-400 hover:text-danger"><LogOut size={16} className="mx-auto"/></button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleReady} 
+                                    className={`flex-1 py-3 rounded-xl text-xs font-black tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                                        currentUser.isReady 
+                                        ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {currentUser.isReady ? <><CheckCircle2 size={16}/> {t('lobby.ready')}</> : t('lobby.setReady')}
+                                </button>
+                                <button onClick={handleLeave} className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-colors">
+                                    <LogOut size={18}/>
+                                </button>
                             </div>
                          </div>
                     </div>
