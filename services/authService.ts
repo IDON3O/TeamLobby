@@ -52,7 +52,8 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
 
 export const signInWithGoogle = async (): Promise<void> => {
     if (!auth || !googleProvider) throw new Error("Auth not initialized");
-    await auth.setPersistence(JSON.stringify({ type: 'LOCAL' })); // Asegurar persistencia local
+    // FIX: setPersistence espera un string 'local', 'session' o 'none', no un objeto JSON.
+    await auth.setPersistence('local'); 
     await auth.signInWithPopup(googleProvider);
 };
 
