@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  Gamepad2, Users, Menu, LogOut, Plus, Search, Sparkles, Crown, X, Save, 
+  Gamepad2, Users, Menu, LogOut, Plus, Search, Sparkles, Crown, X, 
   Image as ImageIcon, Loader2, ShieldCheck, Lock, Copy, MicOff, Link as LinkIcon,
   CheckCircle2, Check, MessageCircle, UserCircle, LayoutGrid, Clock, Trophy, Trash2,
-  ThumbsUp, ChevronUp
+  ThumbsUp
 } from 'lucide-react';
 import { Room, User, Message, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
-  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, deleteRoom, joinRoom 
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, deleteRoom 
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -55,17 +55,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             return () => unsub();
         }
     }, [code, navigate]);
-
-    // AUTO-SYNC NICK: Si el nick actual del usuario no coincide con el guardado en la sala, actualizar.
-    useEffect(() => {
-        if (room && currentUser && code) {
-            const myMemberEntry = room.members.find(m => m.id === currentUser.id);
-            const myCurrentNick = currentUser.nickname || currentUser.alias;
-            if (myMemberEntry && (myMemberEntry.nickname !== myCurrentNick || myMemberEntry.isAdmin !== currentUser.isAdmin)) {
-                joinRoom(code, currentUser); // Re-join actualiza los datos en la sala
-            }
-        }
-    }, [room?.members, currentUser, code]);
 
     // Handlers
     const handleLeave = () => navigate('/');
@@ -154,7 +143,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
-    // Podium Logic (1º centro, 2º izquierda, 3º derecha)
+    // Podium Logic
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
         const totalVotes = proposedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
@@ -169,14 +158,22 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans">
-            {/* Sidebar Desktop */}
+            {/* Overlay para cerrar menú móvil */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex flex-col h-full">
                     <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
-                        <div className="flex items-center gap-2">
-                            <Gamepad2 size={24} className="text-primary animate-pulse"/>
-                            <span className="font-black text-xl tracking-tighter uppercase italic text-white">TeamLobby</span>
-                        </div>
+                        <Link to="/" className="flex items-center gap-2 group">
+                            <Gamepad2 size={24} className="text-primary group-hover:animate-bounce"/>
+                            <span className="font-black text-xl tracking-tighter uppercase italic text-white group-hover:text-primary transition-colors">TeamLobby</span>
+                        </Link>
                         <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg"><X/></button>
                     </div>
 
@@ -190,32 +187,30 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* Podium Section Mejorado */}
+                        {/* Podium Section Refinado */}
                         {sortedRanking.length > 0 && (
-                            <div className="relative pt-8 pb-4">
-                                <div className="flex items-end justify-center gap-2">
-                                    {podium.map((m, idx) => {
+                            <div className="relative pt-8 pb-4 bg-black/20 rounded-2xl border border-gray-800/50">
+                                <div className="flex items-end justify-center gap-1.5 px-2">
+                                    {podium.map((m) => {
                                         const isFirst = m.id === sortedRanking[0].id;
                                         const isSecond = m.id === (sortedRanking[1]?.id);
-                                        const isThird = m.id === (sortedRanking[2]?.id);
                                         
                                         return (
-                                            <div key={m.id} className="flex flex-col items-center group">
+                                            <div key={m.id} className="flex flex-col items-center group flex-1 max-w-[80px]">
                                                 <div className="relative mb-2">
-                                                    <img src={m.avatarUrl} className={`rounded-full border-2 transition-transform group-hover:scale-110 shadow-2xl ${isFirst ? 'w-16 h-16 border-yellow-500' : 'w-12 h-12 border-gray-600'}`}/>
+                                                    <img src={m.avatarUrl} className={`rounded-full border-2 transition-transform shadow-2xl ${isFirst ? 'w-14 h-14 border-yellow-500 ring-4 ring-yellow-500/20' : 'w-10 h-10 border-gray-700'}`}/>
                                                     <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-surface ${isFirst ? 'bg-yellow-500 text-black' : isSecond ? 'bg-gray-400 text-black' : 'bg-orange-600 text-white'}`}>
-                                                        {isFirst ? '1' : isSecond ? '2' : '3'}
+                                                        {m.id === sortedRanking[0].id ? '1' : m.id === sortedRanking[1]?.id ? '2' : '3'}
                                                     </div>
                                                 </div>
-                                                <div className={`rounded-t-xl w-16 flex flex-col items-center p-2 border-t border-x border-gray-800 bg-black/40 shadow-inner ${isFirst ? 'h-24 border-yellow-500/30' : isSecond ? 'h-16' : 'h-12'}`}>
-                                                    <p className="text-[8px] font-black truncate w-full text-center text-gray-400">{m.nickname || m.alias}</p>
-                                                    <p className="text-[9px] font-black text-primary mt-1">{m.totalVotes}</p>
+                                                <div className={`rounded-t-xl w-full flex flex-col items-center p-2 bg-gradient-to-b from-gray-800/40 to-transparent border-t border-gray-700 ${isFirst ? 'h-20 border-yellow-500/40' : isSecond ? 'h-14' : 'h-10'}`}>
+                                                    <p className="text-[8px] font-black truncate w-full text-center text-gray-400 uppercase tracking-tighter">{m.nickname || m.alias}</p>
+                                                    <p className="text-[10px] font-black text-primary">{m.totalVotes}</p>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent mt-0"></div>
                             </div>
                         )}
 
@@ -225,10 +220,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                             <div className="space-y-2">
                                 {members.map(m => (
-                                    <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30 ring-1 ring-green-500/10' : 'bg-black/20 border-gray-800'}`}>
+                                    <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-black/20 border-gray-800'}`}>
                                         <div className="relative">
                                             <img src={m.avatarUrl} className={`w-8 h-8 rounded-full border-2 ${m.isReady ? 'border-green-500' : 'border-gray-800'}`}/>
-                                            {m.isReady && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-surface flex items-center justify-center"><Check size={6} className="text-black" strokeWidth={5}/></div>}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-xs font-bold truncate ${m.isReady ? 'text-white' : 'text-gray-500'}`}>{m.nickname || m.alias}</p>
@@ -244,7 +238,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             onClick={handleReady} 
                             className={`w-full py-4 rounded-xl text-xs font-black tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-2 mb-3 ${
                                 currentUser.isReady 
-                                ? 'bg-green-500 text-black shadow-[0_8px_20px_rgba(34,197,94,0.3)]' 
+                                ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' 
                                 : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
                             }`}
                         >
@@ -252,7 +246,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         </button>
                         <div className="flex gap-2">
                              {(currentUser.isAdmin || room.hostId === currentUser.id) && (
-                                <button onClick={handleDeleteRoom} className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16}/></button>
+                                <button onClick={handleDeleteRoom} className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500 transition-all group">
+                                    <Trash2 size={16} className="group-hover:text-white" />
+                                </button>
                              )}
                             <button onClick={handleLeave} className="flex-1 py-2 bg-gray-900 border border-gray-800 rounded-lg text-[10px] font-black uppercase tracking-tighter flex items-center justify-center gap-2 text-gray-400 hover:text-white"><LogOut size={16}/> Leave</button>
                         </div>
@@ -264,7 +260,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             <main className="flex-1 flex flex-col min-w-0">
                 <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-surface/50 backdrop-blur-xl sticky top-0 z-30">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg"><Menu/></button>
+                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg transition-colors"><Menu/></button>
                         <div>
                             <h2 className="text-lg font-black tracking-tight flex items-center gap-2 text-white">{room.name} {room.isPrivate && <Lock size={14} className="text-gray-600"/>}</h2>
                             <button onClick={() => { navigator.clipboard.writeText(room.code); alert(t('lobby.copied')); }} className="flex items-center gap-2 group">
@@ -292,7 +288,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     <button onClick={() => setActiveFilter('VOTED')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'VOTED' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>{t('lobby.filterVoted')}</button>
                                     <button onClick={() => setActiveFilter('RECENT')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'RECENT' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>{t('lobby.filterRecent')}</button>
                                 </div>
-                                <div className="hidden sm:flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-widest bg-surface/30 px-3 py-1.5 rounded-full border border-gray-800/50">
+                                <div className="hidden sm:flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-widest bg-surface/30 px-4 py-2 rounded-full border border-gray-800/50">
                                     <Crown size={14} className="text-yellow-500"/> {t('lobby.votedGames')}
                                 </div>
                             </div>
@@ -303,7 +299,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     <p className="font-black text-sm uppercase tracking-[0.2em]">{t('lobby.queueEmpty')}</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-24">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-24">
                                     {queue.map(g => (
                                         <GameCard 
                                             key={g.id}
@@ -326,19 +322,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors" size={20}/>
                                 <input type="text" placeholder={t('lobby.searchLib')} className="w-full bg-surface border border-gray-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary transition-all text-sm font-bold shadow-2xl"/>
                              </div>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {MOCK_GAMES.map(g => (
-                                    <div key={g.id} className="flex flex-col group/item">
-                                        <div className="flex-1">
-                                            <GameCard 
-                                                game={{...g, status: 'approved'}} 
-                                                currentUserId={currentUser.id} 
-                                                onVote={()=>{}} 
-                                                isVotingEnabled={false} 
-                                                canRemove={false}
-                                                hideInteractions={true}
-                                            />
-                                        </div>
+                                    <div key={g.id} className="flex flex-col h-full">
+                                        <GameCard 
+                                            game={{...g, status: 'approved'}} 
+                                            currentUserId={currentUser.id} 
+                                            onVote={()=>{}} 
+                                            isVotingEnabled={false} 
+                                            canRemove={false}
+                                            hideInteractions={true}
+                                        />
+                                        <button onClick={() => addGameToRoom(room.code, g, currentUser)} className="mt-3 w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-[10px] font-black hover:bg-primary hover:text-white transition-all uppercase tracking-widest">
+                                            {t('lobby.addToQueue')}
+                                        </button>
                                     </div>
                                 ))}
                              </div>
@@ -347,48 +344,24 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* FAB Chat para Móvil */}
+            {/* Chat Móvil FAB */}
             <button 
                 onClick={() => setIsChatOpen(true)}
-                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform hover:scale-105"
+                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"
             >
                 <MessageCircle size={24} />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-surface"></span>
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full border-2 border-surface"></span>
             </button>
 
-            {/* Modal Add/Edit */}
+            {/* Modal de Juego */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
                     <div className="bg-surface border border-gray-700 w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
-                            <h3 className="text-xl font-black tracking-tight italic uppercase">{editingGameId ? 'Update Entry' : t('lobby.modalTitle')}</h3>
+                            <h3 className="text-xl font-black italic uppercase">{editingGameId ? 'Update Entry' : t('lobby.modalTitle')}</h3>
                             <button onClick={closeModal} className="p-2 hover:bg-gray-800 rounded-full transition-colors"><X size={24}/></button>
                         </div>
                         <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">{t('lobby.coverImage')}</label>
-                                <div onClick={() => fileInputRef.current?.click()} className="h-36 w-full rounded-2xl border-2 border-dashed border-gray-800 hover:border-primary hover:bg-primary/5 cursor-pointer flex flex-col items-center justify-center transition-all group overflow-hidden bg-black/30">
-                                    {previewUrl || newGameImageUrl ? (
-                                        <img src={previewUrl || newGameImageUrl} className="w-full h-full object-cover"/>
-                                    ) : (
-                                        <>
-                                            <ImageIcon size={32} className="text-gray-700 group-hover:text-primary transition-colors mb-2"/>
-                                            <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">{t('lobby.uploadImg')}</span>
-                                        </>
-                                    )}
-                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => {
-                                        if (e.target.files?.[0]) {
-                                            const file = e.target.files[0];
-                                            setSelectedFile(file);
-                                            setPreviewUrl(URL.createObjectURL(file));
-                                        }
-                                    }}/>
-                                </div>
-                                <div className="flex items-center gap-3 bg-black/50 border border-gray-800 rounded-xl px-4 py-3 group focus-within:border-primary transition-colors">
-                                    <LinkIcon size={16} className="text-gray-600 group-focus-within:text-primary"/>
-                                    <input type="text" value={newGameImageUrl} onChange={e => { setNewGameImageUrl(e.target.value); setPreviewUrl(null); }} placeholder={t('lobby.pasteUrl')} className="bg-transparent border-none outline-none text-xs w-full text-white font-bold"/>
-                                </div>
-                            </div>
                             <div className="space-y-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Game Title</label>
@@ -406,8 +379,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Platforms</label>
-                                        <div className="w-full bg-black/30 border border-gray-800/50 rounded-xl px-4 py-3.5 text-xs font-black text-gray-600 italic">AUTO</div>
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Image URL</label>
+                                        <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3.5 text-xs font-bold outline-none focus:border-primary transition-all"/>
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
@@ -417,30 +390,22 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         </div>
                         <div className="p-8 bg-gray-900/40 flex gap-4 border-t border-gray-800">
-                            <button onClick={closeModal} className="flex-1 py-4 rounded-2xl text-xs font-black text-gray-500 hover:bg-gray-800 tracking-widest uppercase transition-colors">{t('common.cancel')}</button>
-                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-4 bg-primary text-white rounded-2xl text-xs font-black shadow-lg shadow-primary/20 active:scale-95 tracking-widest uppercase transition-all">
-                                {isUploading ? 'SYNCING...' : t('common.save')}
+                            <button onClick={closeModal} className="flex-1 py-4 rounded-2xl text-xs font-black text-gray-500 hover:bg-gray-800 transition-colors uppercase">Cancel</button>
+                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-4 bg-primary text-white rounded-2xl text-xs font-black shadow-lg shadow-primary/20 active:scale-95 transition-all uppercase">
+                                {isUploading ? 'SYNCING...' : 'SAVE'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Desktop Chat */}
-            <aside className="hidden lg:flex w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
-                <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
-            </aside>
-
-            {/* Mobile Chat Drawer */}
+            {/* Chat Drawer Móvil */}
             {isChatOpen && (
                 <div className="fixed inset-0 z-[120] bg-black/70 lg:hidden backdrop-blur-md flex items-end">
-                    <div className="bg-surface w-full h-[85vh] rounded-t-[2.5rem] border-t border-gray-800 flex flex-col overflow-hidden animate-slide-up shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+                    <div className="bg-surface w-full h-[85vh] rounded-t-[2.5rem] border-t border-gray-800 flex flex-col overflow-hidden animate-slide-up">
                         <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/60">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="font-black text-sm tracking-widest text-white">{t('chat.title')}</span>
-                            </div>
-                            <button onClick={() => setIsChatOpen(false)} className="p-3 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"><X size={20}/></button>
+                            <span className="font-black text-sm tracking-widest text-white uppercase italic">{t('chat.title')}</span>
+                            <button onClick={() => setIsChatOpen(false)} className="p-3 bg-gray-800 rounded-full"><X size={20}/></button>
                         </div>
                         <div className="flex-1 overflow-hidden">
                              <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
@@ -448,6 +413,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
                 </div>
             )}
+
+            {/* Chat Escritorio */}
+            <aside className="hidden lg:flex w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
+                <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+            </aside>
         </div>
     );
 };

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Gamepad2, LogOut, ShieldCheck, Plus, Clock, Loader2, Ban, Languages, User as UserIcon, Settings } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Gamepad2, LogOut, ShieldCheck, Plus, Clock, Loader2, Ban, Languages, Settings, Lock } from 'lucide-react';
 import { User, RoomSummary } from '../types';
 import { createRoom, joinRoom, getUserRooms } from '../services/roomService';
 import { logout } from '../services/authService';
@@ -83,20 +84,21 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
     );
 
     return (
-        <div className="min-h-screen bg-background text-gray-100 flex flex-col p-4 md:p-8 relative overflow-y-auto custom-scrollbar">
-            <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-accent/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="min-h-screen bg-background text-gray-100 flex flex-col p-4 md:p-8 relative overflow-x-hidden custom-scrollbar">
+            {/* Background Glows ajustados para evitar scroll horizontal */}
+            <div className="absolute top-[-10%] right-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-primary/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-5%] w-[200px] md:w-[400px] h-[200px] md:h-[400px] bg-accent/10 rounded-full blur-[80px] md:blur-[120px] pointer-events-none" />
             
             {/* Header Gamer */}
             <header className="flex justify-between items-center mb-12 z-10 max-w-6xl mx-auto w-full bg-surface/30 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] border border-gray-800/50 shadow-2xl">
-                <div className="flex items-center gap-3">
-                    <div className="bg-primary p-2.5 rounded-2xl shadow-lg shadow-primary/20">
+                <Link to="/" className="flex items-center gap-3 group">
+                    <div className="bg-primary p-2.5 rounded-2xl shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
                          <Gamepad2 size={24} className="text-white"/>
                     </div>
                     <h1 className="text-2xl font-black tracking-tighter uppercase italic hidden sm:block">
                         TeamLobby
                     </h1>
-                </div>
+                </Link>
                 
                 <div className="flex items-center gap-3 md:gap-5">
                     <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="p-2.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded-xl transition-all">
@@ -124,7 +126,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 </div>
             </header>
 
-            <div className="max-w-6xl mx-auto w-full z-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="max-w-6xl mx-auto w-full z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 pb-20">
                 {/* Main Action Area */}
                 <div className="lg:col-span-7 space-y-8">
                     <div className="bg-surface border border-gray-800 p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
@@ -142,7 +144,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                         <Plus size={24} /> {t('home.createBtn')}
                                     </button>
                                 ) : (
-                                    <div className="p-5 bg-gray-900/40 border border-gray-800 rounded-[1.5rem] text-center text-gray-500 text-[10px] font-black uppercase tracking-widest flex items-center justify-center">{t('home.guestMode')}</div>
+                                    <div className="p-5 bg-gray-900/40 border border-gray-800 rounded-[1.5rem] text-center text-gray-500 text-[10px] font-black uppercase tracking-widest flex items-center justify-center italic">Guest Login Mode</div>
                                 )}
                                 
                                 <div className="flex gap-2">
@@ -154,7 +156,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                 <input type="password" placeholder={t('home.password')} value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} className="w-full bg-black/60 border border-gray-800 rounded-[1.5rem] px-4 py-4 text-center text-white focus:border-primary outline-none font-bold"/>
                             )}
 
-                            <button onClick={handleJoinRoom} disabled={isJoiningRoom || !joinCode} className={`w-full py-5 rounded-[1.5rem] transition-all font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 border ${joinCode ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-900 text-gray-700 border-gray-800 cursor-not-allowed'}`}>
+                            <button onClick={handleJoinRoom} disabled={isJoiningRoom || !joinCode} className={`w-full py-5 rounded-[1.5rem] transition-all font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 border ${joinCode ? 'bg-white text-black hover:bg-gray-200 shadow-xl' : 'bg-gray-900 text-gray-700 border-gray-800 cursor-not-allowed'}`}>
                                 {isJoiningRoom ? <Loader2 className="animate-spin" /> : t('home.joinBtn')}
                             </button>
                         </div>
@@ -171,7 +173,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                     {history.length > 0 ? (
                         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                             {history.map(hist => (
-                                <div key={hist.code} onClick={() => navigate(`/room/${hist.code}`)} className="group bg-surface/50 border border-gray-800/80 p-5 rounded-[1.5rem] hover:border-primary/50 hover:bg-surface transition-all cursor-pointer flex justify-between items-center shadow-lg hover:shadow-primary/5">
+                                <div key={hist.code} onClick={() => navigate(`/room/${hist.code}`)} className="group bg-surface/50 border border-gray-800/80 p-5 rounded-[1.5rem] hover:border-primary/50 hover:bg-surface transition-all cursor-pointer flex justify-between items-center shadow-lg">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-black/40 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform border border-gray-800 font-black italic">#</div>
                                         <div className="min-w-0">
@@ -213,6 +215,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                             <div className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-gray-800">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-lg ${isRoomPrivate ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+                                        {/* Added missing Lock icon import */}
                                         {isRoomPrivate ? <Lock size={18}/> : <ShieldCheck size={18}/>}
                                     </div>
                                     <span className="text-xs font-black uppercase tracking-widest">{isRoomPrivate ? t('home.private') : t('home.public')}</span>
