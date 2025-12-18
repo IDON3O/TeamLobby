@@ -1,3 +1,4 @@
+
 import { db } from "../firebaseConfig";
 import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
@@ -28,20 +29,25 @@ export const createRoom = async (host: User, roomName: string, password?: string
     const code = Math.random().toString(36).substring(2, 7).toUpperCase();
     const roomRef = db.ref(`${ROOMS_REF}/${code}`);
     
+    const hostData = {
+        ...host,
+        nickname: host.nickname || host.alias
+    };
+
     const newRoom: Room = {
         code,
         name: roomName || `Room ${code}`,
         isPrivate: !!password,
         password: password || "",
         hostId: host.id,
-        members: [host],
+        members: [hostData],
         gameQueue: [],
         createdAt: Date.now(),
         chatHistory: [{
             id: 'init',
             userId: 'system',
             userName: 'System',
-            content: `Room created by ${host.nickname || host.alias}.`,
+            content: `Room created by ${hostData.nickname}.`,
             timestamp: Date.now(),
             isSystem: true
         }],
@@ -51,7 +57,7 @@ export const createRoom = async (host: User, roomName: string, password?: string
     await updateVisitedRooms(host.id, {
         code,
         name: newRoom.name || '',
-        hostAlias: host.nickname || host.alias,
+        hostAlias: hostData.nickname,
         lastVisited: Date.now()
     });
 
@@ -80,14 +86,18 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     }
 
     const membersRef = roomRef.child('members');
+    const userDataToStore = {
+        ...user,
+        nickname: user.nickname || user.alias
+    };
+
     await membersRef.transaction((members) => {
         const mArray = Array.isArray(members) ? members : Object.values(members || {});
         const index = mArray.findIndex((m: User) => m.id === user.id);
         if (index === -1) {
-            mArray.push(user);
+            mArray.push(userDataToStore);
         } else {
-            // Actualizar datos del usuario existente (nick, etc)
-            mArray[index] = { ...mArray[index], ...user };
+            mArray[index] = { ...mArray[index], ...userDataToStore };
         }
         return mArray;
     });
@@ -95,7 +105,7 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     await updateVisitedRooms(user.id, {
         code,
         name: roomData.name || '',
-        hostAlias: roomData.hostAlias || 'Unknown',
+        hostAlias: roomData.members?.[0]?.nickname || 'Host',
         lastVisited: Date.now()
     });
 
@@ -127,8 +137,9 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
 export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
     
-    // Si el usuario permite contribuciones públicas, el juego se marca como aprobado de inmediato
-    const status = (user.allowGlobalLibrary || user.isAdmin) ? 'approved' : 'pending';
+    // Si permite contribución global, pasa aprobado a la biblioteca automáticamente
+    const isAutoApproved = user.allowGlobalLibrary || user.isAdmin;
+    const status = isAutoApproved ? 'approved' : 'pending';
     
     const gameWithMeta: Game = { 
         ...game, 
@@ -144,7 +155,7 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
         return qArray;
     });
 
-    if (status === 'approved') {
+    if (isAutoApproved) {
         await approveGame(gameWithMeta);
     }
 };
@@ -209,7 +220,6 @@ export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
     const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
     if (!snap.exists()) return [];
     const data = snap.val();
-    // Fix: Explicitly cast Object.values(data) to RoomSummary[] to resolve type error and ensure type safety
     return (Object.values(data) as RoomSummary[]).sort((a, b) => b.lastVisited - a.lastVisited);
 };
 

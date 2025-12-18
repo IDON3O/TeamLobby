@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Gamepad2, Users, Menu, LogOut, Plus, Search, Sparkles, Crown, X, Save, 
   Image as ImageIcon, Loader2, ShieldCheck, Lock, Copy, MicOff, Link as LinkIcon,
   CheckCircle2, Check, MessageCircle, UserCircle, LayoutGrid, Clock, Trophy, Trash2,
-  ThumbsUp
+  ThumbsUp, ChevronUp
 } from 'lucide-react';
 import { Room, User, Message, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
@@ -138,17 +139,23 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const members = room.members || [];
     let queue = [...(room.gameQueue || [])];
 
-    // Sorting
+    // Sorting: Alfabético A-Z por defecto en ALL
     if (activeFilter === 'VOTED') queue.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
-    // Ranking Usuarios Mejorado (Podio)
-    const userRanking = members.map(m => {
+    // Podium Logic (1º centro, 2º izquierda, 3º derecha)
+    const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
         const totalVotes = proposedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
         return { ...m, totalVotes };
     }).filter(m => m.totalVotes > 0).sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 3);
+
+    const podium = [
+        sortedRanking[1], // 2nd Place
+        sortedRanking[0], // 1st Place
+        sortedRanking[2]  // 3rd Place
+    ].filter(Boolean);
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans">
@@ -173,35 +180,32 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* Podio Gamers */}
-                        {userRanking.length > 0 && (
-                            <div className="bg-gradient-to-b from-gray-900/50 to-transparent border border-gray-800/50 rounded-2xl p-4 shadow-xl">
-                                <div className="flex items-center justify-between mb-5">
-                                    <div className="flex items-center gap-2">
-                                        <Trophy size={16} className="text-yellow-500"/>
-                                        <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Podium</span>
-                                    </div>
-                                    <Sparkles size={14} className="text-primary animate-spin-slow"/>
-                                </div>
-                                <div className="space-y-4">
-                                    {userRanking.map((m, idx) => (
-                                        <div key={m.id} className={`flex items-center gap-3 p-2 rounded-xl transition-all border ${idx === 0 ? 'bg-yellow-500/5 border-yellow-500/20 shadow-lg shadow-yellow-500/5' : 'bg-black/20 border-gray-800/40'}`}>
-                                            <div className="relative shrink-0">
-                                                <img src={m.avatarUrl} className={`w-10 h-10 rounded-full border-2 ${idx === 0 ? 'border-yellow-500 scale-110 shadow-lg' : idx === 1 ? 'border-gray-400' : 'border-orange-600'}`}/>
-                                                <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-surface ${idx === 0 ? 'bg-yellow-500 text-black' : idx === 1 ? 'bg-gray-400 text-black' : 'bg-orange-600 text-white'}`}>
-                                                    {idx === 0 ? '1' : idx === 1 ? '2' : '3'}
+                        {/* Podium Section Mejorado */}
+                        {sortedRanking.length > 0 && (
+                            <div className="relative pt-8 pb-4">
+                                <div className="flex items-end justify-center gap-2">
+                                    {podium.map((m, idx) => {
+                                        const isFirst = m.id === sortedRanking[0].id;
+                                        const isSecond = m.id === (sortedRanking[1]?.id);
+                                        const isThird = m.id === (sortedRanking[2]?.id);
+                                        
+                                        return (
+                                            <div key={m.id} className="flex flex-col items-center group">
+                                                <div className="relative mb-2">
+                                                    <img src={m.avatarUrl} className={`rounded-full border-2 transition-transform group-hover:scale-110 shadow-2xl ${isFirst ? 'w-16 h-16 border-yellow-500' : 'w-12 h-12 border-gray-600'}`}/>
+                                                    <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-surface ${isFirst ? 'bg-yellow-500 text-black' : isSecond ? 'bg-gray-400 text-black' : 'bg-orange-600 text-white'}`}>
+                                                        {isFirst ? '1' : isSecond ? '2' : '3'}
+                                                    </div>
+                                                </div>
+                                                <div className={`rounded-t-xl w-16 flex flex-col items-center p-2 border-t border-x border-gray-800 bg-black/40 shadow-inner ${isFirst ? 'h-24 border-yellow-500/30' : isSecond ? 'h-16' : 'h-12'}`}>
+                                                    <p className="text-[8px] font-black truncate w-full text-center text-gray-400">{m.nickname || m.alias}</p>
+                                                    <p className="text-[9px] font-black text-primary mt-1">{m.totalVotes}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`text-xs font-black truncate ${idx === 0 ? 'text-white' : 'text-gray-400'}`}>{m.nickname || m.alias}</p>
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <ThumbsUp size={10} className="text-primary"/>
-                                                    <p className="text-[9px] font-black text-gray-500">{m.totalVotes} VOTES</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
+                                <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-800 to-transparent mt-0"></div>
                             </div>
                         )}
 
@@ -261,11 +265,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setIsChatOpen(true)} className="lg:hidden p-2.5 bg-surface border border-gray-800 rounded-xl relative hover:border-primary transition-colors">
-                            <MessageCircle size={20} className="text-primary"/>
-                            <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-primary rounded-full border-2 border-surface animate-pulse"></span>
-                        </button>
-                        {!currentUser.isGuest && (
+                         {!currentUser.isGuest && (
                             <button onClick={() => setIsGameModalOpen(true)} className="bg-primary hover:bg-violet-600 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 transition-all shadow-lg shadow-primary/20 active:scale-95">
                                 <Plus size={18}/> <span className="hidden sm:inline">{t('lobby.addGame')}</span>
                             </button>
@@ -293,7 +293,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     <p className="font-black text-sm uppercase tracking-[0.2em]">{t('lobby.queueEmpty')}</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-16">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-24">
                                     {queue.map(g => (
                                         <GameCard 
                                             key={g.id}
@@ -326,11 +326,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                                 onVote={()=>{}} 
                                                 isVotingEnabled={false} 
                                                 canRemove={false}
+                                                hideInteractions={true}
                                             />
                                         </div>
-                                        <button onClick={() => addGameToRoom(room.code, g, currentUser)} className="mt-3 w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-[10px] font-black hover:bg-primary hover:text-white hover:border-primary transition-all uppercase tracking-[0.1em] shadow-lg group-hover/item:shadow-primary/10">
-                                            {t('lobby.addToQueue')}
-                                        </button>
                                     </div>
                                 ))}
                              </div>
@@ -338,6 +336,15 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     )}
                 </div>
             </main>
+
+            {/* Botón de Chat Flotante para Móvil */}
+            <button 
+                onClick={() => setIsChatOpen(true)}
+                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"
+            >
+                <MessageCircle size={24} />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-surface animate-bounce"></span>
+            </button>
 
             {/* Modal Add/Edit */}
             {isGameModalOpen && (
