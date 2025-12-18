@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, ShieldCheck, ArrowLeft, Loader2, 
-  Clock, Shield, Layout, Trash2, ExternalLink, MessageCircle, Ban
+  Shield, Layout, Trash2, ExternalLink, Ban
 } from 'lucide-react';
 import { User, Room, Game } from '../types';
 import { 
-  subscribeToAllUsers, getAllRooms, toggleBanUser, toggleMuteUser, 
+  subscribeToAllUsers, getAllRooms, toggleBanUser, 
   approveGame, updateUserProfile, deleteRoom 
 } from '../services/roomService';
 import { useLanguage } from '../services/i18n';
@@ -28,29 +27,36 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
 
     const loadData = async () => {
         setLoading(true);
-        const allRooms = await getAllRooms();
-        setRooms(allRooms);
-        
-        const pending: Game[] = [];
-        allRooms.forEach(r => {
-            const queue = (Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {})) as Game[];
-            queue.forEach(g => {
-                if (g.status === 'pending') pending.push(g);
+        try {
+            const allRooms = await getAllRooms();
+            setRooms(allRooms);
+            
+            const pending: Game[] = [];
+            allRooms.forEach(r => {
+                const queue = (Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {})) as Game[];
+                queue.forEach(g => {
+                    if (g.status === 'pending') pending.push(g);
+                });
             });
-        });
-        setPendingGames(pending);
-        setLoading(false);
+            setPendingGames(pending);
+        } catch (e) {
+            console.error("Error loading admin data:", e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
-        const unsub = subscribeToAllUsers(setUsers);
+        const unsub = subscribeToAllUsers((updatedUsers) => {
+            setUsers(updatedUsers || []);
+        });
         loadData();
         return () => unsub();
     }, []);
 
     const handleApprove = async (game: Game) => {
         await approveGame(game);
-        alert(`Game ${game.title} approved globally.`);
+        alert(`Game "${game.title}" approved globally.`);
         loadData();
     };
 
@@ -80,62 +86,65 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                         </div>
                     </div>
                     
-                    <nav className="flex bg-surface p-1 rounded-2xl border border-gray-800">
-                        <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'users' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Users</button>
-                        <button onClick={() => setActiveTab('rooms')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'rooms' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Rooms</button>
-                        <button onClick={() => setActiveTab('pending')} className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'pending' ? 'bg-primary text-white' : 'text-gray-500 hover:text-white'}`}>Pending ({pendingGames.length})</button>
+                    <nav className="flex bg-surface p-1 rounded-2xl border border-gray-800 shadow-xl">
+                        <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'users' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Users</button>
+                        <button onClick={() => setActiveTab('rooms')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'rooms' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Rooms</button>
+                        <button onClick={() => setActiveTab('pending')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Pending ({pendingGames.length})</button>
                     </nav>
                 </header>
 
                 {loading ? (
-                    <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={48}/></div>
+                    <div className="h-96 flex flex-col items-center justify-center gap-4">
+                        <Loader2 className="animate-spin text-primary" size={48}/>
+                        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Syncing Database...</p>
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         {activeTab === 'users' && (
-                            <div className="bg-surface border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+                            <div className="bg-surface border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead>
                                             <tr className="bg-gray-900/50 text-[10px] font-black uppercase text-gray-500 border-b border-gray-800">
-                                                <th className="px-6 py-4">User</th>
-                                                <th className="px-6 py-4">Status</th>
-                                                <th className="px-6 py-4 text-center">Admin Controls</th>
+                                                <th className="px-6 py-5">User</th>
+                                                <th className="px-6 py-5">Status</th>
+                                                <th className="px-6 py-5 text-center">Admin Controls</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-800/50">
                                             {users.map(u => (
                                                 <tr key={u.id} className="hover:bg-white/5 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <img src={u.avatarUrl} className="w-10 h-10 rounded-xl border border-gray-700 bg-gray-900"/>
+                                                    <td className="px-6 py-5">
+                                                        <div className="flex items-center gap-4">
+                                                            <img src={u.avatarUrl} className="w-12 h-12 rounded-2xl border border-gray-700 bg-gray-900 object-cover"/>
                                                             <div className="min-w-0">
-                                                                <p className="font-bold text-sm truncate">{u.nickname || u.alias}</p>
-                                                                <p className="text-[10px] text-gray-500 font-mono">{u.id.slice(0, 10)}...</p>
+                                                                <p className="font-black text-sm text-white truncate">{u.nickname || u.alias}</p>
+                                                                <p className="text-[10px] text-gray-500 font-mono tracking-tighter">ID: {u.id?.slice(0, 10) || 'N/A'}...</p>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-6 py-5">
                                                         <div className="flex gap-2">
-                                                            {u.isAdmin && <span className="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[9px] font-black uppercase tracking-widest">Admin</span>}
-                                                            {u.isBanned && <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-black uppercase tracking-widest">Banned</span>}
+                                                            {u.isAdmin && <span className="px-2.5 py-1 rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[9px] font-black uppercase tracking-widest">Admin</span>}
+                                                            {u.isBanned && <span className="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-black uppercase tracking-widest">Banned</span>}
+                                                            {!u.isAdmin && !u.isBanned && <span className="px-2.5 py-1 rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">Active</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex justify-center gap-2">
+                                                    <td className="px-6 py-5">
+                                                        <div className="flex justify-center gap-3">
                                                             <button 
                                                                 onClick={() => handleRoleUpdate(u)}
-                                                                className={`p-2.5 rounded-xl transition-all ${u.isAdmin ? 'bg-yellow-500 text-black' : 'bg-gray-800 text-gray-500 hover:text-white'}`}
-                                                                title="Toggle Admin"
+                                                                className={`p-3 rounded-2xl transition-all ${u.isAdmin ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'bg-gray-800 text-gray-500 hover:text-white border border-gray-700'}`}
+                                                                title="Promote/Demote Admin"
                                                             >
-                                                                <Shield size={18}/>
+                                                                <Shield size={20}/>
                                                             </button>
                                                             <button 
                                                                 onClick={() => toggleBanUser(u.id, !u.isBanned)} 
-                                                                className={`p-2.5 rounded-xl transition-all ${u.isBanned ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-gray-800 text-gray-500 hover:text-red-500'}`}
-                                                                title="Ban User"
+                                                                className={`p-3 rounded-2xl transition-all ${u.isBanned ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-gray-800 text-gray-500 hover:text-red-500 border border-gray-700'}`}
+                                                                title="Ban/Unban User"
                                                             >
-                                                                {/* Added Ban icon import */}
-                                                                <Ban size={18}/>
+                                                                <Ban size={20}/>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -150,28 +159,28 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                         {activeTab === 'rooms' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {rooms.map(r => (
-                                    <div key={r.code} className="bg-surface border border-gray-800 rounded-3xl p-6 space-y-4 hover:border-primary/40 transition-all group">
+                                    <div key={r.code} className="bg-surface border border-gray-800 rounded-[2rem] p-6 space-y-5 hover:border-primary/40 transition-all group shadow-xl">
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="font-black text-lg text-white group-hover:text-primary transition-colors">{r.name}</h3>
-                                                <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">#{r.code}</span>
+                                            <div className="min-w-0">
+                                                <h3 className="font-black text-lg text-white group-hover:text-primary transition-colors truncate">{r.name}</h3>
+                                                <span className="text-[10px] font-mono text-primary/70 font-black uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded-lg border border-primary/10">#{r.code}</span>
                                             </div>
-                                            <button onClick={() => handleDeleteRoom(r.code)} className="p-2.5 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                                                <Trash2 size={16}/>
+                                            <button onClick={() => handleDeleteRoom(r.code)} className="p-3 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all border border-red-500/20">
+                                                <Trash2 size={18}/>
                                             </button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3 pt-2">
-                                            <div className="bg-black/30 p-3 rounded-2xl border border-gray-800/50">
-                                                <p className="text-[9px] font-black text-gray-600 uppercase mb-1 flex items-center gap-1"><Users size={10}/> Members</p>
-                                                <p className="text-sm font-black text-gray-300">{r.members?.length || 0}</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-black/40 p-4 rounded-2xl border border-gray-800/50">
+                                                <p className="text-[10px] font-black text-gray-600 uppercase mb-2 flex items-center gap-2"><Users size={12}/> Members</p>
+                                                <p className="text-xl font-black text-white">{r.members?.length || 0}</p>
                                             </div>
-                                            <div className="bg-black/30 p-3 rounded-2xl border border-gray-800/50">
-                                                <p className="text-[9px] font-black text-gray-600 uppercase mb-1 flex items-center gap-1"><Layout size={10}/> Games</p>
-                                                <p className="text-sm font-black text-gray-300">{r.gameQueue?.length || 0}</p>
+                                            <div className="bg-black/40 p-4 rounded-2xl border border-gray-800/50">
+                                                <p className="text-[10px] font-black text-gray-600 uppercase mb-2 flex items-center gap-2"><Layout size={12}/> Games</p>
+                                                <p className="text-xl font-black text-white">{r.gameQueue?.length || 0}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => navigate(`/room/${r.code}`)} className="w-full py-3 bg-gray-900 border border-gray-800 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary flex items-center justify-center gap-2">
-                                            Inspect <ExternalLink size={12}/>
+                                        <button onClick={() => navigate(`/room/${r.code}`)} className="w-full py-4 bg-gray-900 border border-gray-800 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-3">
+                                            Enter Room <ExternalLink size={16}/>
                                         </button>
                                     </div>
                                 ))}
@@ -181,21 +190,24 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                         {activeTab === 'pending' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {pendingGames.length === 0 ? (
-                                    <div className="col-span-full h-64 border-2 border-dashed border-gray-800 rounded-3xl flex items-center justify-center text-gray-600 italic uppercase tracking-widest">No games waiting for approval</div>
+                                    <div className="col-span-full h-80 border-2 border-dashed border-gray-800 rounded-[2.5rem] flex flex-col items-center justify-center text-gray-700 italic uppercase tracking-[0.2em] bg-surface/20">
+                                        <Layout size={48} className="mb-4 opacity-10"/>
+                                        No pending submissions
+                                    </div>
                                 ) : (
                                     pendingGames.map(g => (
-                                        <div key={g.id} className="bg-surface border border-gray-800 rounded-3xl p-5 space-y-4">
-                                            <div className="flex gap-4">
-                                                <img src={g.imageUrl || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded-2xl object-cover bg-gray-900"/>
-                                                <div className="min-w-0">
-                                                    <p className="font-black text-white truncate">{g.title}</p>
-                                                    <p className="text-[10px] font-black text-primary uppercase">{g.genre}</p>
-                                                    <p className="text-[9px] text-gray-500 font-bold mt-1 line-clamp-1 italic">"{g.description}"</p>
+                                        <div key={g.id} className="bg-surface border border-gray-800 rounded-[2.5rem] p-6 space-y-5 shadow-2xl">
+                                            <div className="flex gap-5">
+                                                <img src={g.imageUrl || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-[1.2rem] object-cover bg-gray-900 border border-gray-800 shadow-lg"/>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-black text-white truncate text-base">{g.title}</p>
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mt-1">{g.genre}</p>
+                                                    <p className="text-[11px] text-gray-500 font-bold mt-2 line-clamp-2 italic leading-relaxed">"{g.description}"</p>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleApprove(g)} className="flex-1 py-3 bg-green-500 text-black text-[10px] font-black uppercase rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all">Approve</button>
-                                                <button className="flex-1 py-3 bg-gray-800 text-red-500 text-[10px] font-black uppercase rounded-2xl hover:bg-red-500 hover:text-white transition-all">Reject</button>
+                                            <div className="flex gap-3">
+                                                <button onClick={() => handleApprove(g)} className="flex-1 py-4 bg-green-500 text-black text-[10px] font-black uppercase rounded-2xl shadow-lg shadow-green-500/20 active:scale-95 transition-all tracking-widest">Approve</button>
+                                                <button className="flex-1 py-4 bg-gray-800 text-red-500 text-[10px] font-black uppercase rounded-2xl hover:bg-red-500 hover:text-white transition-all border border-gray-700 tracking-widest">Reject</button>
                                             </div>
                                         </div>
                                     ))

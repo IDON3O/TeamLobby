@@ -9,6 +9,9 @@
     color: #e5e5e5;
     font-family: 'Inter', sans-serif;
   }
+  #root {
+    @apply w-full overflow-x-hidden;
+  }
 }
 
 /* Custom Scrollbar */
@@ -26,7 +29,7 @@
   background: #333; 
 }
 
-/* Animaciones */
+/* Animations */
 @keyframes slide-up {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
