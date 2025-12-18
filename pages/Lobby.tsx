@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
@@ -16,6 +17,7 @@ import { MOCK_GAMES } from '../constants';
 import Chat from '../components/Chat';
 import GameCard from '../components/GameCard';
 import { useLanguage } from '../services/i18n';
+import { useAlert } from '../components/CustomModal';
 
 interface LobbyProps {
     currentUser: User;
@@ -25,6 +27,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const { code } = useParams();
     const navigate = useNavigate();
     const { t } = useLanguage();
+    const { showAlert } = useAlert();
     
     const [room, setRoom] = useState<Room | null>(null);
     const [view, setView] = useState<'LOBBY' | 'LIBRARY'>('LOBBY');
@@ -37,7 +40,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [editingGameId, setEditingGameId] = useState<string | null>(null);
     const [newComment, setNewComment] = useState('');
 
-    // Form states para Crear/Editar
     const [newGameTitle, setNewGameTitle] = useState('');
     const [newGameGenre, setNewGameGenre] = useState<GameGenre>(GameGenre.FPS);
     const [newGameLink, setNewGameLink] = useState('');
@@ -63,13 +65,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     const handleLeave = () => navigate('/');
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
+    
     const handleRemove = (id: string) => {
-        if (window.confirm("¿Eliminar esta postulación?")) {
-            if (room) {
-                removeGameFromRoom(room.code, id, currentUser.id, !!currentUser.isAdmin);
-                setSelectedGame(null);
+        showAlert({
+            title: "REMOVE ENTRY",
+            message: "Are you sure you want to delete this game suggestion?",
+            type: 'confirm',
+            confirmText: "Delete",
+            onConfirm: () => {
+                if (room) {
+                    removeGameFromRoom(room.code, id, currentUser.id, !!currentUser.isAdmin);
+                    setSelectedGame(null);
+                }
             }
-        }
+        });
     };
 
     const handleReady = () => room && toggleUserReadyState(room.code, currentUser.id);
@@ -113,7 +122,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 await addGameToRoom(room.code, newGame, currentUser);
             }
             closeModal();
-        } catch(e) { alert(t('common.error')); } finally { setIsUploading(false); }
+        } catch(e) { showAlert({ message: t('common.error'), type: 'error' }); } finally { setIsUploading(false); }
     };
 
     const closeModal = () => {
@@ -163,7 +172,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             
             {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
-            {/* Sidebar */}
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex flex-col h-full">
                     <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
@@ -224,7 +232,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex-1 flex flex-col min-w-0">
                 <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-surface/50 backdrop-blur-xl sticky top-0 z-30">
                     <div className="flex items-center gap-4">
@@ -299,7 +306,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* MODAL DETALLES DEL JUEGO REDISEÑADO */}
             {selectedGame && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
@@ -307,7 +313,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     <X size={24}/>
                   </button>
 
-                  {/* Cabecera Cinematográfica (Banner Horizontal) */}
                   <div className="relative w-full h-[200px] md:h-[300px] shrink-0 bg-gray-900">
                     <div 
                       className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl scale-110" 
@@ -332,11 +337,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
                   </div>
 
-                  {/* Cuerpo del Modal (Scrollable) */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <div className="p-8 md:p-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
                       
-                      {/* Info & Platforms */}
                       <div className="space-y-8">
                         <div className="space-y-4">
                           <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
@@ -359,7 +362,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         </div>
                       </div>
 
-                      {/* Comentarios con Scroll Fijo */}
                       <div className="space-y-4 flex flex-col h-full">
                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
                           <MessageCircle size={14}/> {t('lobby.comments')} ({selectedGame.comments ? Object.values(selectedGame.comments).length : 0})
@@ -385,7 +387,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             )}
                           </div>
                           
-                          {/* Input Comentario */}
                           <form onSubmit={handleAddComment} className="relative mt-4 shrink-0">
                             <input 
                               type="text" 
@@ -404,7 +405,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
                   </div>
 
-                  {/* Footer Fijo con Acciones */}
                   <div className="p-8 bg-gray-900 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0">
                     <div className="flex items-center gap-3">
                        {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
@@ -442,7 +442,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
               </div>
             )}
 
-            {/* Modal de Crear/Editar */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -488,7 +487,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Chat Móvil FAB */}
             <button 
                 onClick={() => setIsChatOpen(true)}
                 className="lg:hidden fixed bottom-8 right-8 w-16 h-16 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-all border-4 border-background"
@@ -497,7 +495,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background shadow-lg"></span>
             </button>
 
-            {/* Chat Drawer Móvil */}
             {isChatOpen && (
                 <div className="fixed inset-0 z-[120] bg-black/80 lg:hidden backdrop-blur-xl flex items-end">
                     <div className="bg-surface w-full h-[85vh] rounded-t-[3rem] border-t border-gray-800 flex flex-col overflow-hidden animate-slide-up shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
@@ -512,7 +509,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Chat Escritorio */}
             <aside className="hidden lg:flex w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
                 <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
             </aside>

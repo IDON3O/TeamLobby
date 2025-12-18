@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, User as UserIcon, CheckCircle, Shield, Globe } from 'lucide-react';
 import { User } from '../types';
 import { updateUserProfile } from '../services/roomService';
 import { useLanguage } from '../services/i18n';
+import { useAlert } from '../components/CustomModal';
 
 interface ProfileProps {
     currentUser: User;
@@ -12,10 +14,10 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ currentUser }) => {
     const navigate = useNavigate();
     const { t } = useLanguage();
+    const { showAlert } = useAlert();
     const [nickname, setNickname] = useState(currentUser.nickname || currentUser.alias);
     const [allowGlobal, setAllowGlobal] = useState(!!currentUser.allowGlobalLibrary);
     const [isSaving, setIsSaving] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -24,12 +26,9 @@ const Profile: React.FC<ProfileProps> = ({ currentUser }) => {
                 nickname,
                 allowGlobalLibrary: allowGlobal 
             });
-            setShowSuccess(true);
-            setTimeout(() => {
-                setShowSuccess(false);
-            }, 2500);
+            showAlert({ message: t('profile.updated'), type: 'success' });
         } catch (e) {
-            alert(t('common.error'));
+            showAlert({ message: t('common.error'), type: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -73,10 +72,7 @@ const Profile: React.FC<ProfileProps> = ({ currentUser }) => {
                                 <input 
                                     type="text" 
                                     value={nickname} 
-                                    onChange={e => {
-                                        setNickname(e.target.value);
-                                        if (showSuccess) setShowSuccess(false);
-                                    }}
+                                    onChange={e => setNickname(e.target.value)}
                                     className="w-full bg-black border border-gray-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary transition-all font-bold text-white shadow-inner"
                                     placeholder={t('profile.nicknameHint')}
                                 />
@@ -107,15 +103,9 @@ const Profile: React.FC<ProfileProps> = ({ currentUser }) => {
                     <button 
                         onClick={handleSave}
                         disabled={isSaving}
-                        className={`w-full py-4 rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl ${
-                            showSuccess 
-                            ? 'bg-green-500 text-black shadow-green-500/20' 
-                            : 'bg-primary text-white shadow-primary/20 hover:bg-violet-600'
-                        }`}
+                        className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl hover:bg-violet-600 shadow-primary/20"
                     >
-                        {isSaving ? <span className="animate-pulse">SAVING...</span> : (
-                            showSuccess ? <><CheckCircle size={16}/> {t('profile.updated')}</> : <><Save size={16}/> {t('common.save')}</>
-                        )}
+                        {isSaving ? <span className="animate-pulse">SAVING...</span> : <><Save size={16}/> {t('common.save')}</>}
                     </button>
                 </div>
             </div>

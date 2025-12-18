@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Loader2, Gamepad2, Languages } from 'lucide-react';
@@ -5,6 +6,7 @@ import { User } from './types';
 import { onAuthStateChange, signInWithGoogle, createGuestUser } from './services/authService';
 import { subscribeToUserProfile } from './services/roomService';
 import { LanguageProvider, useLanguage } from './services/i18n';
+import { AlertProvider } from './components/CustomModal';
 import Home from './pages/Home';
 import Lobby from './pages/Lobby';
 import Admin from './pages/Admin';
@@ -21,7 +23,6 @@ const AppContent: React.FC = () => {
     const unsubscribe = onAuthStateChange((user) => {
         if (user) {
             setCurrentUser(user);
-            // Suscribirse a cambios en tiempo real del perfil (nickname, score, etc)
             profileUnsub = subscribeToUserProfile(user.id, (dbData) => {
                 setCurrentUser(prev => prev ? { ...prev, ...dbData } : null);
             });
@@ -43,7 +44,6 @@ const AppContent: React.FC = () => {
         await signInWithGoogle(); 
       } catch (e: any) { 
         console.error("Login Error:", e);
-        alert(`${t('auth.loginFailed')}\n\nError: ${e.message || e}`); 
       }
   };
 
@@ -113,7 +113,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
     return (
         <LanguageProvider>
-            <AppContent />
+            <AlertProvider>
+                <AppContent />
+            </AlertProvider>
         </LanguageProvider>
     );
 };

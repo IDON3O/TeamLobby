@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -10,6 +11,7 @@ import {
   approveGame, updateUserProfile, deleteRoom, toggleMuteUser 
 } from '../services/roomService';
 import { useLanguage } from '../services/i18n';
+import { useAlert } from '../components/CustomModal';
 
 interface AdminProps {
     currentUser: User;
@@ -18,6 +20,7 @@ interface AdminProps {
 const Admin: React.FC<AdminProps> = ({ currentUser }) => {
     const navigate = useNavigate();
     const { t } = useLanguage();
+    const { showAlert } = useAlert();
     
     const [users, setUsers] = useState<User[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -56,7 +59,7 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
 
     const handleApprove = async (game: Game) => {
         await approveGame(game);
-        alert(`Game "${game.title}" approved globally.`);
+        showAlert({ message: `Game "${game.title}" approved globally.`, type: 'success' });
         loadData();
     };
 
@@ -65,10 +68,16 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
     };
 
     const handleDeleteRoom = async (code: string) => {
-        if (window.confirm(`Delete room ${code}? This cannot be undone.`)) {
-            await deleteRoom(code);
-            loadData();
-        }
+        showAlert({
+            title: "DELETE ROOM",
+            message: `Are you sure you want to permanently delete room #${code}?`,
+            type: 'confirm',
+            confirmText: "Delete",
+            onConfirm: async () => {
+                await deleteRoom(code);
+                loadData();
+            }
+        });
     };
 
     const handleMuteToggle = async (u: User) => {
