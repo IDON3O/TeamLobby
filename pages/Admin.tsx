@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, ShieldCheck, ArrowLeft, Loader2, 
-  Shield, Layout, Trash2, ExternalLink, Ban
+  Shield, Layout, Trash2, ExternalLink, Ban, MicOff, Mic
 } from 'lucide-react';
 import { User, Room, Game } from '../types';
 import { 
   subscribeToAllUsers, getAllRooms, toggleBanUser, 
-  approveGame, updateUserProfile, deleteRoom 
+  approveGame, updateUserProfile, deleteRoom, toggleMuteUser 
 } from '../services/roomService';
 import { useLanguage } from '../services/i18n';
 
@@ -71,6 +71,10 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
         }
     };
 
+    const handleMuteToggle = async (u: User) => {
+        await toggleMuteUser(u.id, !u.isMuted);
+    };
+
     return (
         <div className="min-h-screen bg-background text-gray-100 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -116,10 +120,10 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                                                 <tr key={u.id} className="hover:bg-white/5 transition-colors">
                                                     <td className="px-6 py-5">
                                                         <div className="flex items-center gap-4">
-                                                            <img src={u.avatarUrl} className="w-12 h-12 rounded-2xl border border-gray-700 bg-gray-900 object-cover"/>
+                                                            <img src={u.avatarUrl} className="w-12 h-12 rounded-2xl border border-gray-700 bg-gray-900 object-cover" alt="Avatar"/>
                                                             <div className="min-w-0">
                                                                 <p className="font-black text-sm text-white truncate">{u.nickname || u.alias}</p>
-                                                                <p className="text-[10px] text-gray-500 font-mono tracking-tighter">ID: {u.id?.slice(0, 10) || 'N/A'}...</p>
+                                                                <p className="text-[10px] text-gray-500 font-mono tracking-tighter">ID: {u.id?.slice(0, 10)}...</p>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -127,7 +131,8 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                                                         <div className="flex gap-2">
                                                             {u.isAdmin && <span className="px-2.5 py-1 rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[9px] font-black uppercase tracking-widest">Admin</span>}
                                                             {u.isBanned && <span className="px-2.5 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-black uppercase tracking-widest">Banned</span>}
-                                                            {!u.isAdmin && !u.isBanned && <span className="px-2.5 py-1 rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">Active</span>}
+                                                            {u.isMuted && <span className="px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest">Muted</span>}
+                                                            {!u.isAdmin && !u.isBanned && !u.isMuted && <span className="px-2.5 py-1 rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">Active</span>}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-5">
@@ -138,6 +143,13 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                                                                 title="Promote/Demote Admin"
                                                             >
                                                                 <Shield size={20}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleMuteToggle(u)}
+                                                                className={`p-3 rounded-2xl transition-all ${u.isMuted ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-gray-800 text-gray-500 hover:text-orange-500 border border-gray-700'}`}
+                                                                title="Mute/Unmute Chat"
+                                                            >
+                                                                {u.isMuted ? <MicOff size={20}/> : <Mic size={20}/>}
                                                             </button>
                                                             <button 
                                                                 onClick={() => toggleBanUser(u.id, !u.isBanned)} 
@@ -198,7 +210,7 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                                     pendingGames.map(g => (
                                         <div key={g.id} className="bg-surface border border-gray-800 rounded-[2.5rem] p-6 space-y-5 shadow-2xl">
                                             <div className="flex gap-5">
-                                                <img src={g.imageUrl || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-[1.2rem] object-cover bg-gray-900 border border-gray-800 shadow-lg"/>
+                                                <img src={g.imageUrl || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-[1.2rem] object-cover bg-gray-900 border border-gray-800 shadow-lg" alt="Game"/>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="font-black text-white truncate text-base">{g.title}</p>
                                                     <p className="text-[10px] font-black text-primary uppercase tracking-widest mt-1">{g.genre}</p>

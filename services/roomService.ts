@@ -1,4 +1,3 @@
-
 import { db } from "../firebaseConfig";
 import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
@@ -9,12 +8,12 @@ const GLOBAL_LIBRARY_REF = "library";
 // --- PERFIL USUARIO ---
 
 export const updateUserProfile = async (userId: string, data: Partial<User>) => {
-    if (!db) return;
+    if (!db || !userId) return;
     await db.ref(`${USERS_REF}/${userId}`).update(data);
 };
 
 export const subscribeToUserProfile = (userId: string, callback: (user: Partial<User>) => void) => {
-    if (!db) return () => {};
+    if (!db || !userId) return () => {};
     const ref = db.ref(`${USERS_REF}/${userId}`);
     const listener = ref.on('value', (snap) => {
         if (snap.exists()) callback(snap.val());
@@ -70,7 +69,7 @@ export const deleteRoom = async (code: string) => {
 };
 
 const updateVisitedRooms = async (userId: string, summary: RoomSummary) => {
-    if (!db || userId.startsWith('guest')) return;
+    if (!db || !userId || userId.startsWith('guest')) return;
     await db.ref(`${USERS_REF}/${userId}/visitedRooms/${summary.code}`).set(summary);
 };
 
@@ -137,7 +136,6 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
 export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
     
-    // Si permite contribución global, pasa aprobado a la biblioteca automáticamente
     const isAutoApproved = user.allowGlobalLibrary || user.isAdmin;
     const status = isAutoApproved ? 'approved' : 'pending';
     
@@ -210,17 +208,41 @@ export const subscribeToAllUsers = (callback: (users: User[]) => void) => {
     const ref = db.ref(USERS_REF);
     const listener = ref.on('value', snap => {
         const data = snap.val();
-        callback(data ? Object.values(data) : []);
+        if (!data) {
+            callback([]);
+            return;
+        }
+        // Transformar objeto de Firebase en Array asegurando que el ID (key) esté presente
+        const userList = Object.entries(data).map(([id, val]: [string, any]) => ({
+            ...val,
+            id: id
+        })).filter(u => (u.alias || u.nickname) && u.avatarUrl); // Filtrar posibles registros incompletos
+        callback(userList);
     });
     return () => ref.off('value', listener);
 };
 
 export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
-    if (!db) return [];
+    if (!db || !userId) return [];
     const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
     if (!snap.exists()) return [];
+    
     const data = snap.val();
-    return (Object.values(data) as RoomSummary[]).sort((a, b) => b.lastVisited - a.lastVisited);
+    const summaries = Object.values(data) as RoomSummary[];
+    
+    // Validar existencia de las salas para limpiar el historial de enlaces muertos
+    const validSummaries: RoomSummary[] = [];
+    for (const s of summaries) {
+        const rSnap = await db.ref(`${ROOMS_REF}/${s.code}`).once('value');
+        if (rSnap.exists()) {
+            validSummaries.push(s);
+        } else {
+            // Limpieza automática del historial si la sala ya no existe
+            await db.ref(`${USERS_REF}/${userId}/visitedRooms/${s.code}`).remove();
+        }
+    }
+    
+    return validSummaries.sort((a, b) => b.lastVisited - a.lastVisited);
 };
 
 export const voteForGame = async (code: string, gameId: string, userId: string) => {
@@ -276,11 +298,11 @@ export const getAllRooms = async (): Promise<Room[]> => {
 };
 
 export const toggleBanUser = async (userId: string, isBanned: boolean) => {
-    if (!db) return;
+    if (!db || !userId) return;
     await db.ref(`${USERS_REF}/${userId}`).update({ isBanned });
 };
 
 export const toggleMuteUser = async (userId: string, isMuted: boolean) => {
-    if (!db) return;
+    if (!db || !userId) return;
     await db.ref(`${USERS_REF}/${userId}`).update({ isMuted });
 };
