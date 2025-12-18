@@ -15,6 +15,7 @@ interface GameCardProps {
   onAddComment?: (gameId: string, text: string) => void;
   isVotingEnabled: boolean;
   canRemove: boolean;
+  hideInteractions?: boolean; // Nuevo prop para biblioteca global
 }
 
 const PlatformIcon = ({ p }: { p: string }) => {
@@ -25,7 +26,7 @@ const PlatformIcon = ({ p }: { p: string }) => {
   return null;
 };
 
-const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemove, onEdit, onAddComment, isVotingEnabled, canRemove }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemove, onEdit, onAddComment, isVotingEnabled, canRemove, hideInteractions }) => {
   const { t } = useLanguage();
   const [imgError, setImgError] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -103,51 +104,61 @@ const GameCard: React.FC<GameCardProps> = ({ game, currentUserId, onVote, onRemo
             </div>
 
             {/* Acciones */}
-            <div className="flex justify-between items-center mt-auto border-t border-gray-800/50 pt-3">
-                <div className="flex items-center gap-0.5">
-                    {canRemove && onRemove && (
+            {!hideInteractions && (
+                <div className="flex justify-between items-center mt-auto border-t border-gray-800/50 pt-3">
+                    <div className="flex items-center gap-0.5">
+                        {canRemove && onRemove && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onRemove(game.id); }}
+                            className="text-gray-600 hover:text-danger hover:bg-danger/10 p-1.5 rounded-lg transition-all"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                        )}
+                        {canRemove && onEdit && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onEdit(game); }}
+                            className="text-gray-600 hover:text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all"
+                        >
+                            <Edit3 size={16} />
+                        </button>
+                        )}
+                        <button 
+                            onClick={() => setShowComments(true)}
+                            className="text-gray-600 hover:text-accent hover:bg-accent/10 p-1.5 rounded-lg transition-all relative"
+                        >
+                            <MessageSquare size={16} />
+                            {comments.length > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-accent rounded-full border border-surface"></span>}
+                        </button>
+                        {game.link && (
+                            <a href={game.link} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-white p-1.5 transition-colors">
+                                <ExternalLink size={16} />
+                            </a>
+                        )}
+                    </div>
+                    
                     <button 
-                        onClick={(e) => { e.stopPropagation(); onRemove(game.id); }}
-                        className="text-gray-600 hover:text-danger hover:bg-danger/10 p-1.5 rounded-lg transition-all"
+                        onClick={() => onVote(game.id)}
+                        disabled={!isVotingEnabled}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all active:scale-90 ${
+                        hasVoted 
+                            ? 'bg-primary text-white shadow-[0_2px_8px_rgba(139,92,246,0.3)]' 
+                            : 'bg-gray-900 text-gray-500 hover:bg-gray-800 hover:text-white'
+                        }`}
                     >
-                        <Trash2 size={16} />
+                        <ThumbsUp size={14} className={hasVoted ? 'fill-current' : ''} />
+                        <span>{votes}</span>
                     </button>
-                    )}
-                    {canRemove && onEdit && (
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onEdit(game); }}
-                        className="text-gray-600 hover:text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-all"
-                    >
-                        <Edit3 size={16} />
-                    </button>
-                    )}
-                    <button 
-                        onClick={() => setShowComments(true)}
-                        className="text-gray-600 hover:text-accent hover:bg-accent/10 p-1.5 rounded-lg transition-all relative"
-                    >
-                        <MessageSquare size={16} />
-                        {comments.length > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-accent rounded-full border border-surface"></span>}
-                    </button>
-                    {game.link && (
-                        <a href={game.link} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-white p-1.5 transition-colors">
-                            <ExternalLink size={16} />
-                        </a>
-                    )}
                 </div>
-                
-                <button 
-                    onClick={() => onVote(game.id)}
-                    disabled={!isVotingEnabled}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all active:scale-90 ${
-                    hasVoted 
-                        ? 'bg-primary text-white shadow-[0_2px_8px_rgba(139,92,246,0.3)]' 
-                        : 'bg-gray-900 text-gray-500 hover:bg-gray-800 hover:text-white'
-                    }`}
-                >
-                    <ThumbsUp size={14} className={hasVoted ? 'fill-current' : ''} />
-                    <span>{votes}</span>
-                </button>
-            </div>
+            )}
+            
+            {hideInteractions && game.link && (
+                 <div className="mt-auto border-t border-gray-800/50 pt-3 flex justify-center">
+                    <a href={game.link} target="_blank" rel="noreferrer" className="text-[10px] font-black text-gray-500 hover:text-white flex items-center gap-2 uppercase tracking-widest transition-colors">
+                         View Details <ExternalLink size={12} />
+                    </a>
+                 </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col h-[140px]">

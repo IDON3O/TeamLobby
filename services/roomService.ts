@@ -48,8 +48,24 @@ export const createRoom = async (host: User, roomName: string, password?: string
     };
 
     await roomRef.set(newRoom);
-    
+    await updateVisitedRooms(host.id, {
+        code,
+        name: newRoom.name || '',
+        hostAlias: host.nickname || host.alias,
+        lastVisited: Date.now()
+    });
+
     return code;
+};
+
+export const deleteRoom = async (code: string) => {
+    if (!db) return;
+    await db.ref(`${ROOMS_REF}/${code}`).remove();
+};
+
+const updateVisitedRooms = async (userId: string, summary: RoomSummary) => {
+    if (!db || userId.startsWith('guest')) return;
+    await db.ref(`${USERS_REF}/${userId}/visitedRooms/${summary.code}`).set(summary);
 };
 
 export const joinRoom = async (code: string, user: User, passwordAttempt?: string): Promise<{success: boolean, message?: string}> => {
@@ -64,21 +80,23 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     }
 
     const membersRef = roomRef.child('members');
-    
     await membersRef.transaction((members) => {
         const mArray = Array.isArray(members) ? members : Object.values(members || {});
-        const exists = mArray.some((m: User) => m.id === user.id);
-        if (!exists) mArray.push(user);
+        const index = mArray.findIndex((m: User) => m.id === user.id);
+        if (index === -1) {
+            mArray.push(user);
+        } else {
+            // Actualizar datos del usuario existente (nick, etc)
+            mArray[index] = { ...mArray[index], ...user };
+        }
         return mArray;
     });
 
-    // Cleanup on disconnect
-    membersRef.on('value', (snap) => {
-        const mArray = Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val() || {});
-        const index = mArray.findIndex((m: User) => m.id === user.id);
-        if (index !== -1) {
-            membersRef.child(index.toString()).onDisconnect().remove();
-        }
+    await updateVisitedRooms(user.id, {
+        code,
+        name: roomData.name || '',
+        hostAlias: roomData.hostAlias || 'Unknown',
+        lastVisited: Date.now()
     });
 
     return { success: true };
@@ -104,14 +122,18 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
     return () => roomRef.off('value', listener);
 };
 
-// --- GESTIÓN DE JUEGOS & APROBACIÓN ---
+// --- GESTIÓN DE JUEGOS ---
 
 export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
+    
+    // Si el usuario permite contribuciones públicas, el juego se marca como aprobado de inmediato
+    const status = (user.allowGlobalLibrary || user.isAdmin) ? 'approved' : 'pending';
+    
     const gameWithMeta: Game = { 
         ...game, 
         proposedBy: user.id, 
-        status: (user.isAdmin || user.allowGlobalLibrary) ? 'pending' : 'pending', // Siempre pending para revisión admin
+        status: status,
         votedBy: [user.id] 
     };
 
@@ -121,6 +143,10 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
         qArray.push(gameWithMeta);
         return qArray;
     });
+
+    if (status === 'approved') {
+        await approveGame(gameWithMeta);
+    }
 };
 
 export const updateGameInRoom = async (code: string, gameId: string, updatedData: Partial<Game>) => {
@@ -181,7 +207,10 @@ export const subscribeToAllUsers = (callback: (users: User[]) => void) => {
 export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
     if (!db) return [];
     const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
-    return snap.exists() ? Object.values(snap.val()) : [];
+    if (!snap.exists()) return [];
+    const data = snap.val();
+    // Fix: Explicitly cast Object.values(data) to RoomSummary[] to resolve type error and ensure type safety
+    return (Object.values(data) as RoomSummary[]).sort((a, b) => b.lastVisited - a.lastVisited);
 };
 
 export const voteForGame = async (code: string, gameId: string, userId: string) => {
