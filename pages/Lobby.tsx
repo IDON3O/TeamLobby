@@ -157,9 +157,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
+    // LÓGICA DE RANKING ACTUALIZADA:
+    // Solo se cuentan los votos de juegos propuestos por el usuario que tengan MÁS de 2 votos totales.
+    // Esto garantiza que el voto propio inicial no otorgue puntos al ranking y se requiera apoyo comunitario.
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
-        const totalVotes = proposedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
+        const communityApprovedGames = proposedGames.filter(g => (g.votedBy?.length || 0) > 2);
+        const totalVotes = communityApprovedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
         return { ...m, totalVotes };
     }).filter(m => m.totalVotes > 0).sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 3);
 
