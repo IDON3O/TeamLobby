@@ -1,30 +1,25 @@
+
 import { db } from "../firebaseConfig";
-import { Room, Game, User, Message, RoomSummary } from "../types";
+import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
 const ROOMS_REF = "rooms";
 const USERS_REF = "users";
+const GLOBAL_LIBRARY_REF = "library";
 
-const generateRoomCode = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 5; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+// --- PERFIL USUARIO ---
+
+export const updateUserProfile = async (userId: string, data: Partial<User>) => {
+    if (!db) return;
+    await db.ref(`${USERS_REF}/${userId}`).update(data);
 };
 
-// --- CREACIÓN Y UNIÓN ---
+// --- GESTIÓN DE SALA ---
 
 export const createRoom = async (host: User, roomName: string, password?: string): Promise<string> => {
     if (!db) throw new Error("Database not initialized");
-    if (host.isGuest) throw new Error("Guests cannot create rooms");
-    
-    const code = generateRoomCode();
+    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
     const roomRef = db.ref(`${ROOMS_REF}/${code}`);
     
-    const snapshot = await roomRef.once('value');
-    if (snapshot.exists()) return createRoom(host, roomName, password);
-
     const newRoom: Room = {
         code,
         name: roomName || `Room ${code}`,
@@ -38,210 +33,97 @@ export const createRoom = async (host: User, roomName: string, password?: string
             id: 'init',
             userId: 'system',
             userName: 'System',
-            content: `Room created by ${host.alias}.`,
+            content: `Room created by ${host.nickname || host.alias}.`,
             timestamp: Date.now(),
             isSystem: true
         }],
     };
 
     await roomRef.set(newRoom);
-    await saveRoomToHistory(host.id, newRoom);
+    
     return code;
-};
-
-export const checkRoomPassword = async (code: string, passwordAttempt: string): Promise<boolean> => {
-    if (!db) return false;
-    const snapshot = await db.ref(`${ROOMS_REF}/${code}`).once('value');
-    if (!snapshot.exists()) return false;
-    const room = snapshot.val();
-    if (!room.isPrivate) return true;
-    return room.password === passwordAttempt;
 };
 
 export const joinRoom = async (code: string, user: User, passwordAttempt?: string): Promise<{success: boolean, message?: string}> => {
     if (!db) throw new Error("Database not initialized");
-    
     const roomRef = db.ref(`${ROOMS_REF}/${code}`);
     const snapshot = await roomRef.once('value');
-    
     if (!snapshot.exists()) return { success: false, message: "Room not found" };
 
     const roomData = snapshot.val();
-
-    // Validar contraseña si es privada y no es el host reconectando
-    if (roomData.isPrivate && roomData.hostId !== user.id) {
-        if (roomData.password !== passwordAttempt) {
-             return { success: false, message: "Invalid Password" };
-        }
+    if (roomData.isPrivate && roomData.hostId !== user.id && roomData.password !== passwordAttempt) {
+        return { success: false, message: "Invalid Password" };
     }
 
     await roomRef.child('members').transaction((members) => {
-        if (members) {
-            const membersArray = Array.isArray(members) ? members : Object.values(members);
-            const exists = membersArray.some((m: User) => m.id === user.id);
-            if (!exists) {
-                if (Array.isArray(members)) members.push(user);
-                else return [...membersArray, user];
-            }
-        } else {
-            return [user];
-        }
-        return members;
+        const mArray = Array.isArray(members) ? members : Object.values(members || {});
+        const exists = mArray.some((m: User) => m.id === user.id);
+        if (!exists) mArray.push(user);
+        return mArray;
     });
-
-    if (!user.isGuest) {
-        await saveRoomToHistory(user.id, roomData);
-    }
 
     return { success: true };
 };
 
-// --- HISTORIAL ---
-
-const saveRoomToHistory = async (userId: string, room: Room) => {
-    if (!db) return;
-    const historyRef = db.ref(`${USERS_REF}/${userId}/visitedRooms/${room.code}`);
-    await historyRef.set({
-        code: room.code,
-        name: room.name || room.code,
-        lastVisited: Date.now(),
-        hostAlias: room.members[0]?.alias || 'Unknown'
-    });
-};
-
-export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
-    if (!db) return [];
-    const snapshot = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
-    if (!snapshot.exists()) return [];
-    const data = snapshot.val();
-    return Object.values(data).sort((a: any, b: any) => b.lastVisited - a.lastVisited) as RoomSummary[];
-};
-
-// --- GESTIÓN DE JUEGOS ---
-
-export const addGameToRoom = async (code: string, game: Game, user: User) => {
-    if (!db) return;
-    if (user.isGuest) throw new Error("Guests cannot propose games.");
-
-    // Aseguramos que tenga el proposedBy
-    const gameWithProposer = { ...game, proposedBy: user.id };
-
-    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-    await queueRef.transaction((queue) => {
-        if (queue) {
-             const qArray = Array.isArray(queue) ? queue : Object.values(queue);
-             qArray.push(gameWithProposer);
-             return qArray;
-        } else {
-            return [gameWithProposer];
-        }
-    });
-};
-
-export const removeGameFromRoom = async (code: string, gameId: string, userId: string, isAdmin: boolean) => {
-     if (!db) return;
-     const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-     
-     await queueRef.transaction((queue) => {
-         if (!queue) return queue;
-         const qArray = Array.isArray(queue) ? queue : Object.values(queue);
-         
-         const game = qArray.find((g: Game) => g.id === gameId);
-         if (!game) return qArray;
-
-         // Regla: Solo el que lo propuso o un Admin puede borrarlo
-         // Nota: Manejamos juegos antiguos sin 'proposedBy' permitiendo al admin borrarlos o a cualquiera (fallback)
-         const canDelete = isAdmin || game.proposedBy === userId || !game.proposedBy;
-
-         if (canDelete) {
-             return qArray.filter((g: Game) => g.id !== gameId);
-         }
-         return qArray;
-     });
-}
-
-// --- CORE ---
-
 export const subscribeToRoom = (code: string, callback: (room: Room) => void) => {
     if (!db) return () => {};
-
     const roomRef = db.ref(`${ROOMS_REF}/${code}`);
-    
     const listener = roomRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            
-            const safeMembers = data.members 
-                ? (Array.isArray(data.members) ? data.members : Object.values(data.members)) 
-                : [];
-            
-            let safeQueue = data.gameQueue 
-                ? (Array.isArray(data.gameQueue) ? data.gameQueue : Object.values(data.gameQueue)) 
-                : [];
-            
-            safeQueue = safeQueue.map((g: any) => ({
-                ...g,
-                votedBy: Array.isArray(g.votedBy) ? g.votedBy : [] 
-            }));
-
-            const safeChat = data.chatHistory 
-                ? (Array.isArray(data.chatHistory) ? data.chatHistory : Object.values(data.chatHistory)) 
-                : [];
-
-            const room: Room = {
+            callback({
                 ...data,
-                members: safeMembers,
-                gameQueue: safeQueue,
-                chatHistory: safeChat
-            };
-            callback(room);
+                members: Array.isArray(data.members) ? data.members : Object.values(data.members || {}),
+                gameQueue: Array.isArray(data.gameQueue) ? data.gameQueue : Object.values(data.gameQueue || {}),
+                chatHistory: Array.isArray(data.chatHistory) ? data.chatHistory : Object.values(data.chatHistory || {})
+            });
+        } else {
+            // @ts-ignore
+            callback(null);
         }
     });
-
     return () => roomRef.off('value', listener);
 };
 
-export const voteForGame = async (code: string, gameId: string, userId: string) => {
+// --- GESTIÓN DE JUEGOS & APROBACIÓN ---
+
+export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
+    const gameWithMeta: Game = { 
+        ...game, 
+        proposedBy: user.id, 
+        status: user.isAdmin ? 'approved' : 'pending',
+        votedBy: [user.id] 
+    };
+
     const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-
     await queueRef.transaction((queue) => {
-        if (!queue) return queue;
-
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue);
-        const index = qArray.findIndex((g: Game) => g.id === gameId);
-        
-        if (index !== -1) {
-            const game = qArray[index];
-            const votes = Array.isArray(game.votedBy) ? game.votedBy : [];
-            const hasVoted = votes.includes(userId);
-            if (hasVoted) {
-                game.votedBy = votes.filter((id: string) => id !== userId);
-            } else {
-                game.votedBy = [...votes, userId];
-            }
-            qArray.sort((a: Game, b: Game) => {
-                const lenA = a.votedBy ? a.votedBy.length : 0;
-                const lenB = b.votedBy ? b.votedBy.length : 0;
-                return lenB - lenA;
-            });
-        }
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
+        qArray.push(gameWithMeta);
         return qArray;
     });
 };
 
-export const sendChatMessage = async (code: string, message: Message) => {
+export const approveGame = async (game: Game) => {
     if (!db) return;
-    const chatRef = db.ref(`${ROOMS_REF}/${code}/chatHistory`);
-    
-    await chatRef.transaction((history) => {
-        if (history) {
-            const hArray = Array.isArray(history) ? history : Object.values(history);
-            hArray.push(message);
-            return hArray;
-        } else {
-            return [message];
-        }
+    // Guardar en biblioteca global
+    const libRef = db.ref(`${GLOBAL_LIBRARY_REF}/${game.id}`);
+    await libRef.set({ ...game, status: 'approved' });
+};
+
+export const addCommentToGame = async (roomCode: string, gameId: string, comment: Comment) => {
+    if (!db) return;
+    const roomRef = db.ref(`${ROOMS_REF}/${roomCode}/gameQueue`);
+    await roomRef.transaction((queue) => {
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
+        return qArray.map((g: Game) => {
+            if (g.id === gameId) {
+                const comments = Array.isArray(g.comments) ? g.comments : Object.values(g.comments || {});
+                comments.push(comment);
+                return { ...g, comments };
+            }
+            return g;
+        });
     });
 };
 
@@ -249,8 +131,7 @@ export const toggleUserReadyState = async (code: string, userId: string) => {
     if (!db) return;
     const membersRef = db.ref(`${ROOMS_REF}/${code}/members`);
     await membersRef.transaction((members) => {
-        if (!members) return members;
-        const mArray = Array.isArray(members) ? members : Object.values(members);
+        const mArray = Array.isArray(members) ? members : Object.values(members || {});
         return mArray.map((m: User) => {
             if (m.id === userId) return { ...m, isReady: !m.isReady };
             return m;
@@ -258,42 +139,87 @@ export const toggleUserReadyState = async (code: string, userId: string) => {
     });
 };
 
-// --- ADMIN FEATURES ---
+// --- HELPERS ADMIN ---
 
 export const subscribeToAllUsers = (callback: (users: User[]) => void) => {
     if (!db) return () => {};
-    const usersRef = db.ref(USERS_REF);
-    const listener = usersRef.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            const usersList = Object.keys(data).map(key => ({
-                id: key,
-                ...data[key]
-            }));
-            callback(usersList);
-        } else {
-            callback([]);
-        }
+    const ref = db.ref(USERS_REF);
+    const listener = ref.on('value', snap => {
+        const data = snap.val();
+        callback(data ? Object.values(data) : []);
     });
-    return () => usersRef.off('value', listener);
+    return () => ref.off('value', listener);
 };
 
-export const toggleBanUser = async (userId: string, currentStatus: boolean) => {
+export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
+    if (!db) return [];
+    const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
+    return snap.exists() ? Object.values(snap.val()) : [];
+};
+
+export const voteForGame = async (code: string, gameId: string, userId: string) => {
     if (!db) return;
-    await db.ref(`${USERS_REF}/${userId}`).update({ isBanned: !currentStatus });
+    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
+    await queueRef.transaction((queue) => {
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
+        return qArray.map((g: Game) => {
+            if (g.id === gameId) {
+                const votes = Array.isArray(g.votedBy) ? g.votedBy : Object.values(g.votedBy || {});
+                const hasVoted = votes.includes(userId);
+                return { ...g, votedBy: hasVoted ? votes.filter(id => id !== userId) : [...votes, userId] };
+            }
+            return g;
+        });
+    });
 };
 
-export const toggleMuteUser = async (userId: string, currentStatus: boolean) => {
+export const sendChatMessage = async (code: string, message: Message) => {
     if (!db) return;
-    await db.ref(`${USERS_REF}/${userId}`).update({ isMuted: !currentStatus });
+    const chatRef = db.ref(`${ROOMS_REF}/${code}/chatHistory`);
+    await chatRef.transaction((history) => {
+        const hArray = Array.isArray(history) ? history : Object.values(history || {});
+        hArray.push(message);
+        return hArray;
+    });
 };
 
+export const removeGameFromRoom = async (code: string, gameId: string, userId: string, isAdmin: boolean) => {
+    if (!db) return;
+    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
+    await queueRef.transaction((queue) => {
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
+        const game = qArray.find((g: Game) => g.id === gameId);
+        if (isAdmin || game?.proposedBy === userId) {
+            return qArray.filter((g: Game) => g.id !== gameId);
+        }
+        return qArray;
+    });
+};
+
+// --- NEW ADMIN EXPORTS ---
+
+// Added missing getAllRooms
 export const getAllRooms = async (): Promise<Room[]> => {
     if (!db) return [];
     const snapshot = await db.ref(ROOMS_REF).once('value');
-    if (snapshot.exists()) {
-        const data = snapshot.val();
-        return Object.values(data) as Room[];
-    }
-    return [];
-}
+    if (!snapshot.exists()) return [];
+    const data = snapshot.val();
+    return Object.values(data).map((r: any) => ({
+        ...r,
+        members: Array.isArray(r.members) ? r.members : Object.values(r.members || {}),
+        gameQueue: Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {}),
+        chatHistory: Array.isArray(r.chatHistory) ? r.chatHistory : Object.values(r.chatHistory || {})
+    }));
+};
+
+// Added missing toggleBanUser
+export const toggleBanUser = async (userId: string, isBanned: boolean) => {
+    if (!db) return;
+    await db.ref(`${USERS_REF}/${userId}`).update({ isBanned });
+};
+
+// Added missing toggleMuteUser
+export const toggleMuteUser = async (userId: string, isMuted: boolean) => {
+    if (!db) return;
+    await db.ref(`${USERS_REF}/${userId}`).update({ isMuted });
+};

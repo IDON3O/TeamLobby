@@ -1,27 +1,14 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Game, Platform, User } from '../types';
 
-// Safe access to API Key
-const getApiKey = () => {
-    try {
-        // @ts-ignore
-        return import.meta.env?.VITE_API_KEY || '';
-    } catch (e) {
-        return '';
-    }
-}
-
-const apiKey = getApiKey();
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Use process.env.API_KEY strictly as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getGameRecommendations = async (
   users: User[],
   currentGames: Game[]
 ): Promise<Game[]> => {
-  if (!ai) {
-      console.warn("Gemini API Key missing. Recommendations disabled.");
-      return [];
-  }
   try {
     const userPlatforms = Array.from(new Set(users.flatMap(u => u.platforms))).join(', ');
     const existingTitles = currentGames.map(g => g.title).join(', ');
@@ -38,8 +25,9 @@ export const getGameRecommendations = async (
       Return a JSON array of objects.
     `;
 
+    // Updated model to gemini-3-flash-preview
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -53,13 +41,16 @@ export const getGameRecommendations = async (
               genre: { type: Type.STRING },
               link: { type: Type.STRING },
               tags: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
+            },
+            required: ['title', 'description', 'genre', 'link', 'tags']
           }
         }
       }
     });
 
-    const rawData = JSON.parse(response.text || '[]');
+    const text = response.text;
+    if (!text) return [];
+    const rawData = JSON.parse(text);
     
     // Map response to Game interface 
     return rawData.map((item: any, index: number) => ({
@@ -73,7 +64,8 @@ export const getGameRecommendations = async (
       votedBy: [],
       tags: item.tags || ['Co-op'],
       link: item.link || `https://store.steampowered.com/search/?term=${encodeURIComponent(item.title)}`,
-      proposedBy: 'AI'
+      proposedBy: 'AI',
+      status: 'approved' // Added required status property
     }));
 
   } catch (error) {
@@ -83,10 +75,10 @@ export const getGameRecommendations = async (
 };
 
 export const generateBotChat = async (lastMessage: string, context: string): Promise<string> => {
-    if (!ai) return "System Offline (Config Missing)";
     try {
+        // Updated model to gemini-3-flash-preview
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: `
             Context: ${context}
             Last User Message: "${lastMessage}"
@@ -98,6 +90,6 @@ export const generateBotChat = async (lastMessage: string, context: string): Pro
         });
         return response.text || "Game on! 🎮";
     } catch (e) {
-        return "System offline... reconnecting.";
+        return "Game on! 🎮";
     }
 }

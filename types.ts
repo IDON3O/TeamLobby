@@ -14,18 +14,12 @@ export enum GameGenre {
   PUZZLE = 'Puzzle'
 }
 
-export interface User {
+export interface Comment {
   id: string;
-  alias: string;
-  email?: string; 
-  avatarUrl: string;
-  platforms: Platform[];
-  availableUntil?: string; 
-  isReady: boolean;
-  isGuest?: boolean; 
-  isAdmin?: boolean; 
-  isBanned?: boolean; // Nuevo: Para bloquear acceso
-  isMuted?: boolean;  // Nuevo: Para bloquear chat
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: number;
 }
 
 export interface Game {
@@ -37,8 +31,25 @@ export interface Game {
   platforms: Platform[];
   votedBy: string[]; 
   tags: string[];
-  link?: string; // Nuevo: Enlace a Steam/Tienda
-  proposedBy?: string; // Nuevo: ID del usuario que lo propuso
+  link?: string;
+  proposedBy?: string;
+  status: 'pending' | 'approved';
+  comments?: Comment[];
+}
+
+export interface User {
+  id: string;
+  alias: string;
+  nickname?: string; // Nombre personalizado
+  email?: string; 
+  avatarUrl: string;
+  platforms: Platform[];
+  isReady: boolean;
+  isGuest?: boolean; 
+  isAdmin?: boolean; 
+  isBanned?: boolean;
+  isMuted?: boolean;
+  score?: number; // Ranking basado en juegos aprobados
 }
 
 export interface Message {
@@ -52,15 +63,14 @@ export interface Message {
 
 export interface Room {
   code: string;
-  name?: string; // Nuevo: Nombre legible de la sala
-  isPrivate?: boolean; // Nuevo: Sala con contraseña
-  password?: string; // Nuevo: Contraseña simple
+  name?: string;
+  isPrivate?: boolean;
+  password?: string;
   hostId: string;
   members: User[];
   gameQueue: Game[];
   chatHistory: Message[];
-  activeGameId?: string;
-  createdAt: number; // Nuevo: Para ordenar historial
+  createdAt: number;
 }
 
 export interface RoomSummary {
@@ -70,4 +80,4 @@ export interface RoomSummary {
   hostAlias: string;
 }
 
-export type ViewState = 'HOME' | 'LOBBY' | 'LIBRARY' | 'PROFILE' | 'ADMIN';
+export type ViewState = 'LOBBY' | 'LIBRARY' | 'ADMIN' | 'PROFILE';

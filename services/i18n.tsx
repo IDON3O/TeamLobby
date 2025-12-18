@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 
 type Language = 'en' | 'es';
@@ -9,6 +10,8 @@ const translations = {
     'common.save': 'Save',
     'common.error': 'Error',
     'common.or': 'or',
+    'common.update': 'Update',
+    'common.back': 'Back',
     
     'auth.subtitle': 'Sign in to sync, vote, and lead your squad.',
     'auth.google': 'Sign in with Google',
@@ -28,10 +31,11 @@ const translations = {
     'home.recent': 'Recent Rooms',
     'home.noHistory': 'No recent history.',
     'home.modalTitle': 'Create New Squad',
+    // Added missing Home translations
     'home.roomName': 'Room Name',
-    'home.roomNamePlace': 'e.g. Friday Night Gaming',
-    'home.private': 'Private Room',
-    'home.public': 'Public Room',
+    'home.roomNamePlace': 'e.g. Pro Gamers',
+    'home.private': 'Private',
+    'home.public': 'Public',
     'home.secretKey': 'Secret Key',
     'home.creating': 'Creating...',
     'home.create': 'Create',
@@ -44,8 +48,8 @@ const translations = {
     'lobby.viewLibrary': 'Library',
     'lobby.squad': 'SQUAD',
     'lobby.ready': 'READY',
-    'lobby.setReady': 'SET READY',
-    'lobby.notReady': 'Not Ready',
+    'lobby.setReady': 'I AM READY',
+    'lobby.notReady': 'Waiting...',
     'lobby.addGame': 'Add Game',
     'lobby.votedGames': 'Voted Games',
     'lobby.aiSuggest': 'AI SUGGEST',
@@ -53,12 +57,34 @@ const translations = {
     'lobby.searchLib': 'Search library...',
     'lobby.addToQueue': 'ADD TO QUEUE',
     'lobby.modalTitle': 'Add Game',
-    'lobby.coverImage': 'Cover Image (Upload or URL)',
-    'lobby.uploadImg': 'Upload Image',
-    'lobby.pasteUrl': 'Or paste image URL...',
-    'lobby.gameTitle': 'Game Title',
-    'lobby.storeUrl': 'Store URL (Optional)',
     'lobby.uploading': 'Uploading...',
+    'lobby.filterAll': 'All',
+    'lobby.filterVoted': 'Most Voted',
+    'lobby.filterRecent': 'Latest',
+    'lobby.comments': 'Comments',
+    'lobby.noComments': 'No comments yet.',
+    'lobby.addComment': 'Write a comment...',
+    // Added missing Lobby translations
+    'lobby.coverImage': 'Cover Image',
+    'lobby.uploadImg': 'Upload Image',
+    'lobby.pasteUrl': 'Paste image URL...',
+    'lobby.gameTitle': 'Game Title',
+    
+    'profile.title': 'Profile Settings',
+    'profile.nickname': 'Nickname',
+    'profile.nicknameHint': 'How others will see you',
+    'profile.updated': 'Profile updated!',
+    
+    'admin.dashboard': 'Admin Dashboard',
+    'admin.users': 'User Management',
+    'admin.rooms': 'Active Rooms',
+    'admin.pending': 'Pending Approval',
+    'admin.approve': 'Approve',
+    'admin.reject': 'Reject',
+    'admin.noPending': 'No pending games.',
+    'admin.roleUser': 'User',
+    'admin.roleAdmin': 'Admin',
+    'admin.makeAdmin': 'Promote to Admin',
     
     'chat.placeholder': 'Type message...',
     'chat.title': 'SQUAD_CHAT',
@@ -70,6 +96,8 @@ const translations = {
     'common.save': 'Guardar',
     'common.error': 'Error',
     'common.or': 'o',
+    'common.update': 'Actualizar',
+    'common.back': 'Volver',
     
     'auth.subtitle': 'Inicia sesión para sincronizar, votar y liderar.',
     'auth.google': 'Entrar con Google',
@@ -89,10 +117,11 @@ const translations = {
     'home.recent': 'Salas Recientes',
     'home.noHistory': 'Sin historial reciente.',
     'home.modalTitle': 'Crear Nuevo Equipo',
-    'home.roomName': 'Nombre de Sala',
-    'home.roomNamePlace': 'ej. Viernes de Gaming',
-    'home.private': 'Sala Privada',
-    'home.public': 'Sala Pública',
+    // Added missing Home translations
+    'home.roomName': 'Nombre de la Sala',
+    'home.roomNamePlace': 'ej. Escuadrón Épico',
+    'home.private': 'Privada',
+    'home.public': 'Pública',
     'home.secretKey': 'Clave Secreta',
     'home.creating': 'Creando...',
     'home.create': 'Crear',
@@ -106,7 +135,7 @@ const translations = {
     'lobby.squad': 'EQUIPO',
     'lobby.ready': 'LISTO',
     'lobby.setReady': 'ESTOY LISTO',
-    'lobby.notReady': 'No Listo',
+    'lobby.notReady': 'Esperando...',
     'lobby.addGame': 'Añadir Juego',
     'lobby.votedGames': 'Juegos Votados',
     'lobby.aiSuggest': 'IA SUGERIR',
@@ -114,12 +143,34 @@ const translations = {
     'lobby.searchLib': 'Buscar en biblioteca...',
     'lobby.addToQueue': 'AÑADIR A COLA',
     'lobby.modalTitle': 'Añadir Juego',
-    'lobby.coverImage': 'Portada (Subir o URL)',
-    'lobby.uploadImg': 'Subir Imagen',
-    'lobby.pasteUrl': 'O pega URL de imagen...',
-    'lobby.gameTitle': 'Título del Juego',
-    'lobby.storeUrl': 'URL Tienda (Opcional)',
     'lobby.uploading': 'Subiendo...',
+    'lobby.filterAll': 'Todos',
+    'lobby.filterVoted': 'Más Votados',
+    'lobby.filterRecent': 'Últimos',
+    'lobby.comments': 'Comentarios',
+    'lobby.noComments': 'Sin comentarios aún.',
+    'lobby.addComment': 'Escribe un comentario...',
+    // Added missing Lobby translations
+    'lobby.coverImage': 'Imagen de Portada',
+    'lobby.uploadImg': 'Subir Imagen',
+    'lobby.pasteUrl': 'Pegar URL...',
+    'lobby.gameTitle': 'Título del Juego',
+    
+    'profile.title': 'Ajustes de Perfil',
+    'profile.nickname': 'Apodo / Nickname',
+    'profile.nicknameHint': 'Cómo te verán los demás',
+    'profile.updated': '¡Perfil actualizado!',
+    
+    'admin.dashboard': 'Panel de Administración',
+    'admin.users': 'Gestión de Usuarios',
+    'admin.rooms': 'Salas Activas',
+    'admin.pending': 'Pendientes de Aprobación',
+    'admin.approve': 'Aprobar',
+    'admin.reject': 'Rechazar',
+    'admin.noPending': 'No hay juegos pendientes.',
+    'admin.roleUser': 'Usuario',
+    'admin.roleAdmin': 'Admin',
+    'admin.makeAdmin': 'Hacer Admin',
     
     'chat.placeholder': 'Escribe mensaje...',
     'chat.title': 'CHAT_EQUIPO',
@@ -141,18 +192,12 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [language, setLanguageState] = useState<Language>('en');
 
   useEffect(() => {
-    // 1. Check LocalStorage
     const savedLang = localStorage.getItem('appLanguage') as Language;
     if (savedLang && (savedLang === 'en' || savedLang === 'es')) {
       setLanguageState(savedLang);
     } else {
-      // 2. Check Browser Language
       const browserLang = navigator.language.split('-')[0];
-      if (browserLang === 'es') {
-        setLanguageState('es');
-      } else {
-        setLanguageState('en');
-      }
+      setLanguageState(browserLang === 'es' ? 'es' : 'en');
     }
   }, []);
 
@@ -174,8 +219,6 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
+  if (!context) throw new Error('useLanguage must be used within a LanguageProvider');
   return context;
 };

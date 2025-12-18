@@ -3,10 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Gamepad2, Users, Menu, LogOut, Plus, Search, Sparkles, Crown, X, Save, 
   Image as ImageIcon, Loader2, ShieldCheck, Lock, Copy, MicOff, Link as LinkIcon,
-  CheckCircle2, Check
+  CheckCircle2, Check, MessageCircle, UserCircle, LayoutGrid, Clock
 } from 'lucide-react';
 import { Room, User, Message, Game, GameGenre, Platform, ViewState } from '../types';
-import { subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, toggleUserReadyState, removeGameFromRoom } from '../services/roomService';
+import { 
+  subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame 
+} from '../services/roomService';
 import { getGameRecommendations } from '../services/geminiService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -22,14 +25,17 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const { code } = useParams();
     const navigate = useNavigate();
     const { t } = useLanguage();
-    const [room, setRoom] = useState<Room | null>(null);
-    const [view, setView] = useState<ViewState>('LOBBY');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [mobileTab, setMobileTab] = useState<'MENU' | 'CHAT'>('MENU');
-    const [isLoadingRecs, setIsLoadingRecs] = useState(false);
     
-    // Game Modal State
+    const [room, setRoom] = useState<Room | null>(null);
+    const [view, setView] = useState<'LOBBY' | 'LIBRARY'>('LOBBY');
+    const [activeFilter, setActiveFilter] = useState<'ALL' | 'VOTED' | 'RECENT'>('ALL');
+    
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false); // Para móviles
+    const [isLoadingRecs, setIsLoadingRecs] = useState(false);
     const [isGameModalOpen, setIsGameModalOpen] = useState(false);
+
+    // Form states
     const [newGameTitle, setNewGameTitle] = useState('');
     const [newGameGenre, setNewGameGenre] = useState<GameGenre>(GameGenre.FPS);
     const [newGameLink, setNewGameLink] = useState('');
@@ -41,38 +47,32 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     useEffect(() => {
         if (code) {
-            const unsubscribe = subscribeToRoom(code, (updatedRoom) => {
-                if (!updatedRoom) {
-                    alert(t('lobby.roomNotExist'));
-                    navigate('/');
-                    return;
-                }
+            const unsub = subscribeToRoom(code, (updatedRoom) => {
+                if (!updatedRoom) { navigate('/'); return; }
                 setRoom(updatedRoom);
             });
-            return () => unsubscribe();
+            return () => unsub();
         }
-    }, [code, navigate, t]);
+    }, [code, navigate]);
 
     // Handlers
     const handleLeave = () => navigate('/');
-    const copyCode = () => { navigator.clipboard.writeText(code || ''); alert(t('lobby.copied')); };
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
     const handleRemove = (id: string) => room && removeGameFromRoom(room.code, id, currentUser.id, !!currentUser.isAdmin);
-    const handleSendMsg = (txt: string) => room && !currentUser.isMuted && sendChatMessage(room.code, {
-        id: `${Date.now()}`, userId: currentUser.id, userName: currentUser.alias, content: txt, timestamp: Date.now()
-    });
     const handleReady = () => room && toggleUserReadyState(room.code, currentUser.id);
-
-    const handleRecommendations = async () => {
-        if (!room || currentUser.isGuest) return;
-        setIsLoadingRecs(true);
-        try {
-            const recs = await getGameRecommendations(room.members, room.gameQueue);
-            const existing = room.gameQueue.map(g => g.title.toLowerCase());
-            for (const g of recs) {
-                if (!existing.includes(g.title.toLowerCase())) await addGameToRoom(room.code, g, currentUser);
-            }
-        } finally { setIsLoadingRecs(false); }
+    const handleSendMsg = (txt: string) => room && sendChatMessage(room.code, {
+        id: `${Date.now()}`, userId: currentUser.id, userName: currentUser.nickname || currentUser.alias, content: txt, timestamp: Date.now()
+    });
+    
+    const handleAddComment = (gameId: string, text: string) => {
+        if (!room) return;
+        addCommentToGame(room.code, gameId, {
+            id: `${Date.now()}`,
+            userId: currentUser.id,
+            userName: currentUser.nickname || currentUser.alias,
+            text,
+            timestamp: Date.now()
+        });
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,240 +80,251 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             const file = e.target.files[0];
             setSelectedFile(file);
             setPreviewUrl(URL.createObjectURL(file));
-            setNewGameImageUrl(''); // Clear text input if file selected
         }
     };
 
     const handleAddGame = async () => {
         if (!newGameTitle || !room) return;
         setIsUploading(true);
-        let finalImg = newGameImageUrl;
-
         try {
-            if (selectedFile) {
-                finalImg = await uploadGameImage(selectedFile);
-            }
-
+            let finalImg = newGameImageUrl;
+            if (selectedFile) finalImg = await uploadGameImage(selectedFile);
             const game: Game = {
                 id: `custom-${Date.now()}`,
                 title: newGameTitle,
-                description: 'Custom added game.',
+                description: 'User recommended game.',
                 imageUrl: finalImg,
                 genre: newGameGenre,
                 platforms: [Platform.PC],
                 votedBy: [currentUser.id],
                 tags: ['Custom'],
                 link: newGameLink,
-                proposedBy: currentUser.id
+                status: 'pending'
             };
             await addGameToRoom(room.code, game, currentUser);
             setIsGameModalOpen(false);
-            setNewGameTitle(''); setNewGameLink(''); setNewGameImageUrl(''); setPreviewUrl(null); setSelectedFile(null);
-            setView('LOBBY');
+            setNewGameTitle(''); setNewGameImageUrl(''); setPreviewUrl(null);
         } catch(e) { alert(t('common.error')); } finally { setIsUploading(false); }
     };
 
-    const handleAddLibrary = async (game: Game) => {
-        if (!room) return;
-        if (room.gameQueue.find(g => g.title === game.title)) return alert("Already in queue");
-        await addGameToRoom(room.code, { ...game, id: `lib-${Date.now()}`, votedBy: [currentUser.id], proposedBy: currentUser.id }, currentUser);
-        setView('LOBBY');
-    };
-
-    if (!room) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin"/></div>;
+    if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
     const members = room.members || [];
-    const queue = room.gameQueue || [];
-    const chat = room.chatHistory || [];
+    let queue = [...(room.gameQueue || [])];
+
+    // Aplicar Filtros
+    if (activeFilter === 'VOTED') queue.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
+    if (activeFilter === 'RECENT') queue.reverse();
 
     return (
-        <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans selection:bg-primary/30">
-             {isSidebarOpen && <div className="fixed inset-0 bg-black/80 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}/>}
-             
-             {/* Sidebar */}
-            <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-[85vw] md:w-80 lg:w-72 bg-surface border-r border-gray-800 transform transition-transform duration-300 flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                <div className="p-6 border-b border-gray-800 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center"><Gamepad2 size={18}/></div>
-                        <span className="font-bold text-lg">TeamLobby</span>
+        <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans">
+            {/* Sidebar Desktop */}
+            <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                <div className="flex flex-col h-full">
+                    <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-primary p-2 rounded-lg shadow-lg shadow-primary/20"><Gamepad2 size={20}/></div>
+                            <span className="font-black text-xl tracking-tighter">TeamLobby</span>
+                        </div>
+                        <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden"><X/></button>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden"><X/></button>
-                </div>
 
-                <div className="flex lg:hidden border-b border-gray-800">
-                    <button onClick={() => setMobileTab('MENU')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'MENU' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>{t('lobby.menu')}</button>
-                    <button onClick={() => setMobileTab('CHAT')} className={`flex-1 py-3 text-sm font-bold ${mobileTab === 'CHAT' ? 'border-b-2 border-primary' : 'text-gray-500'}`}>{t('lobby.chat')}</button>
-                </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                        <nav className="space-y-1">
+                            <button onClick={() => setView('LOBBY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LOBBY' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-gray-800'}`}>
+                                <LayoutGrid size={20}/> <span className="font-bold">{t('lobby.viewLobby')}</span>
+                            </button>
+                            <button onClick={() => setView('LIBRARY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LIBRARY' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-800'}`}>
+                                <Search size={20}/> <span className="font-bold">{t('lobby.viewLibrary')}</span>
+                            </button>
+                        </nav>
 
-                <div className="flex-1 overflow-y-auto relative">
-                    <div className={`flex-col h-full ${mobileTab === 'MENU' || window.innerWidth >= 1024 ? 'flex' : 'hidden'}`}>
-                         <div className="flex-1 py-6 px-4 space-y-2">
-                            <button onClick={() => { setView('LOBBY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'LOBBY' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <Users size={20}/> <span className="font-semibold">{t('lobby.viewLobby')}</span>
-                            </button>
-                            <button onClick={() => { setView('LIBRARY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'LIBRARY' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <Gamepad2 size={20}/> <span className="font-semibold">{t('lobby.viewLibrary')}</span>
-                            </button>
-                            
-                            <div className="mt-8 px-2 mb-2 text-xs font-bold text-gray-500 uppercase">{t('lobby.squad')} ({members.length})</div>
-                            
+                        <div>
+                            <div className="px-2 mb-3 text-[10px] font-black text-gray-600 uppercase tracking-widest">{t('lobby.squad')} ({members.length})</div>
                             <div className="space-y-2">
                                 {members.map(m => (
-                                    <div key={m.id} className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-surface border-gray-800'}`}>
+                                    <div key={m.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/40 ring-1 ring-green-500/20' : 'bg-black/20 border-gray-800'}`}>
                                         <div className="relative">
                                             <img src={m.avatarUrl} className={`w-9 h-9 rounded-full border-2 ${m.isReady ? 'border-green-500' : 'border-gray-700'}`}/>
                                             {m.isReady && (
-                                                <div className="absolute -bottom-1 -right-1 bg-surface rounded-full p-0.5">
-                                                    <div className="bg-green-500 rounded-full p-0.5">
-                                                        <Check size={8} className="text-black" strokeWidth={4} />
-                                                    </div>
+                                                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-0.5 border-2 border-surface animate-bounce">
+                                                    <Check size={8} className="text-black" strokeWidth={5} />
                                                 </div>
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-sm font-bold truncate flex items-center gap-1.5 ${m.isReady ? 'text-white' : 'text-gray-400'}`}>
-                                                {m.alias} 
-                                                {m.isAdmin && <ShieldCheck size={12} className="text-yellow-500"/>}
-                                            </p>
-                                            <p className="text-[10px] uppercase font-bold tracking-wider text-gray-600">
-                                                {m.isReady ? <span className="text-green-500 flex items-center gap-1">READY</span> : t('lobby.notReady')}
+                                            <p className={`text-sm font-bold truncate ${m.isReady ? 'text-white' : 'text-gray-400'}`}>{m.nickname || m.alias}</p>
+                                            <p className={`text-[10px] font-black uppercase ${m.isReady ? 'text-green-500' : 'text-gray-600'}`}>
+                                                {m.isReady ? t('lobby.ready') : t('lobby.notReady')}
                                             </p>
                                         </div>
-                                        {m.isMuted && <MicOff size={14} className="text-red-500"/>}
                                     </div>
                                 ))}
                             </div>
-                         </div>
-                         
-                         <div className="p-4 border-t border-gray-800 bg-surface/95 backdrop-blur">
-                            <div className="flex items-center gap-3 mb-4">
-                                <img src={currentUser.avatarUrl} className="w-10 h-10 rounded-full border border-gray-700"/>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold truncate">{currentUser.alias}</p>
-                                    <p className={`text-xs font-bold ${currentUser.isReady ? 'text-green-500' : 'text-gray-500'}`}>
-                                        {currentUser.isReady ? "STATUS: READY" : "STATUS: NOT READY"}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={handleReady} 
-                                    className={`flex-1 py-3 rounded-xl text-xs font-black tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                                        currentUser.isReady 
-                                        ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
-                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                                    }`}
-                                >
-                                    {currentUser.isReady ? <><CheckCircle2 size={16}/> {t('lobby.ready')}</> : t('lobby.setReady')}
-                                </button>
-                                <button onClick={handleLeave} className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-colors">
-                                    <LogOut size={18}/>
-                                </button>
-                            </div>
-                         </div>
+                        </div>
                     </div>
-                    <div className={`h-full ${mobileTab === 'CHAT' && window.innerWidth < 1024 ? 'block' : 'hidden'}`}>
-                        <Chat messages={chat} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+
+                    <div className="p-4 border-t border-gray-800 bg-black/40 backdrop-blur">
+                        <button 
+                            onClick={handleReady} 
+                            className={`w-full py-4 rounded-xl text-xs font-black tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 mb-3 ${
+                                currentUser.isReady 
+                                ? 'bg-green-500 text-black shadow-[0_8px_20px_rgba(34,197,94,0.4)]' 
+                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                            }`}
+                        >
+                            {currentUser.isReady ? <><CheckCircle2 size={18}/> {t('lobby.ready')}</> : t('lobby.setReady')}
+                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={() => navigate('/profile')} className="flex-1 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-xs font-bold flex items-center justify-center gap-2"><UserCircle size={16}/> {t('profile.nickname')}</button>
+                            <button onClick={handleLeave} className="px-4 py-2.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500 hover:text-white transition-all"><LogOut size={18}/></button>
+                        </div>
                     </div>
                 </div>
             </aside>
 
-            {/* Main */}
-            <main className="flex-1 flex flex-col min-w-0 bg-background">
-                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-4 bg-surface/50 backdrop-blur sticky top-0 z-20">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden"><Menu/></button>
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col min-w-0">
+                <header className="h-20 border-b border-gray-800 flex items-center justify-between px-6 bg-surface/50 backdrop-blur-xl sticky top-0 z-30">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg"><Menu/></button>
                         <div>
-                            <h2 className="text-lg font-bold leading-none">{room.name}</h2>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] font-mono text-gray-500 bg-gray-900 px-2 rounded border border-gray-800">CODE: <span className="text-accent">{room.code}</span></span>
-                                <button onClick={copyCode}><Copy size={12}/></button>
-                                {room.isPrivate && <Lock size={12} className="text-gray-500"/>}
-                            </div>
+                            <h2 className="text-xl font-black tracking-tight">{room.name}</h2>
+                            <button onClick={() => { navigator.clipboard.writeText(room.code); alert(t('lobby.copied')); }} className="flex items-center gap-2 mt-0.5 group">
+                                <span className="text-[10px] font-mono font-black text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">#{room.code}</span>
+                                <Copy size={12} className="text-gray-600 group-hover:text-white transition-colors"/>
+                            </button>
                         </div>
                     </div>
-                    {!currentUser.isGuest && <button onClick={() => setIsGameModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-violet-600 rounded-lg text-sm font-bold"><Plus size={16}/> <span className="hidden md:inline">{t('lobby.addGame')}</span></button>}
+
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setIsChatOpen(!isChatOpen)} className="lg:hidden p-3 bg-gray-900 border border-gray-800 rounded-xl relative">
+                            <MessageCircle size={20}/>
+                            <span className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-full border-4 border-surface"></span>
+                        </button>
+                        {!currentUser.isGuest && (
+                            <button onClick={() => setIsGameModalOpen(true)} className="bg-primary hover:bg-violet-600 text-white p-3 md:px-5 md:py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg shadow-primary/20 active:scale-95">
+                                <Plus size={20}/> <span className="hidden md:inline">{t('lobby.addGame')}</span>
+                            </button>
+                        )}
+                    </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+                <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
                     {view === 'LOBBY' ? (
-                        <div className="space-y-8">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><Crown size={16} className="text-yellow-500"/> {t('lobby.votedGames')}</h3>
-                                {!currentUser.isGuest && <button onClick={handleRecommendations} disabled={isLoadingRecs} className="text-xs font-bold text-accent flex items-center gap-1">{isLoadingRecs ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>} {t('lobby.aiSuggest')}</button>}
+                        <div className="space-y-8 max-w-7xl mx-auto">
+                            {/* Filtros */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
+                                    <button onClick={() => setActiveFilter('ALL')} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${activeFilter === 'ALL' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>{t('lobby.filterAll')}</button>
+                                    <button onClick={() => setActiveFilter('VOTED')} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${activeFilter === 'VOTED' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>{t('lobby.filterVoted')}</button>
+                                    <button onClick={() => setActiveFilter('RECENT')} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${activeFilter === 'RECENT' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>{t('lobby.filterRecent')}</button>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                    <Crown size={14} className="text-yellow-500"/> {t('lobby.votedGames')}
+                                </div>
                             </div>
+
                             {queue.length === 0 ? (
-                                <div className="border-2 border-dashed border-gray-800 rounded-2xl p-12 text-center text-gray-500 flex flex-col items-center gap-4">
-                                    <Gamepad2 size={48}/> <p>{t('lobby.queueEmpty')}</p>
+                                <div className="h-64 border-2 border-dashed border-gray-800 rounded-3xl flex flex-col items-center justify-center text-gray-600 gap-4">
+                                    <Gamepad2 size={64} className="opacity-20"/>
+                                    <p className="font-bold">{t('lobby.queueEmpty')}</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pb-20">
                                     {queue.map(g => (
-                                        <div key={g.id} className="h-64 md:h-80">
-                                            <GameCard game={g} currentUserId={currentUser.id} onVote={handleVote} onRemove={handleRemove} isVotingEnabled={!currentUser.isGuest} canRemove={currentUser.isAdmin || g.proposedBy === currentUser.id || !g.proposedBy} />
+                                        <div key={g.id} className="h-[440px]">
+                                            <GameCard 
+                                                game={g} 
+                                                currentUserId={currentUser.id} 
+                                                onVote={handleVote} 
+                                                onRemove={handleRemove}
+                                                onAddComment={handleAddComment}
+                                                isVotingEnabled={!currentUser.isGuest}
+                                                canRemove={currentUser.isAdmin || g.proposedBy === currentUser.id}
+                                            />
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-800 max-w-md">
-                                <Search size={18} className="text-gray-500 ml-2"/><input type="text" placeholder={t('lobby.searchLib')} className="bg-transparent border-none outline-none text-sm w-full text-gray-300"/>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="max-w-7xl mx-auto space-y-8">
+                             <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={20}/>
+                                <input type="text" placeholder={t('lobby.searchLib')} className="w-full bg-surface border border-gray-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary transition-all text-sm font-bold shadow-inner"/>
+                             </div>
+                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {MOCK_GAMES.map(g => (
-                                    <div key={g.id} className="h-64 opacity-75 hover:opacity-100">
-                                        <GameCard game={g} currentUserId={currentUser.id} onVote={()=>{}} isVotingEnabled={false} canRemove={false}/>
-                                        {!currentUser.isGuest && <button onClick={() => handleAddLibrary(g)} className="w-full mt-2 py-2 bg-gray-800 hover:bg-primary text-xs font-bold rounded border border-gray-700">{t('lobby.addToQueue')}</button>}
+                                    <div key={g.id} className="h-[400px] flex flex-col opacity-80 hover:opacity-100 transition-opacity">
+                                        <GameCard game={{...g, status: 'approved'}} currentUserId={currentUser.id} onVote={()=>{}} isVotingEnabled={false} canRemove={false}/>
+                                        <button onClick={() => addGameToRoom(room.code, g, currentUser)} className="mt-3 w-full py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-black hover:bg-primary hover:text-white transition-all uppercase tracking-widest">{t('lobby.addToQueue')}</button>
                                     </div>
                                 ))}
-                            </div>
+                             </div>
                         </div>
                     )}
                 </div>
             </main>
 
-            <aside className="hidden lg:block w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
-                <Chat messages={chat} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+            {/* Desktop Chat Sidebar */}
+            <aside className="hidden lg:flex w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
+                <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
             </aside>
 
-            {/* Add Game Modal with URL Input */}
-            {isGameModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-surface border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="p-4 border-b border-gray-700 flex justify-between bg-gray-900/50">
-                            <h3 className="font-bold flex gap-2"><Plus size={18} className="text-primary"/> {t('lobby.modalTitle')}</h3>
-                            <button onClick={() => setIsGameModalOpen(false)}><X size={20}/></button>
+            {/* Mobile Chat Drawer */}
+            {isChatOpen && (
+                <div className="fixed inset-0 z-[100] bg-black/60 lg:hidden backdrop-blur-sm flex items-end">
+                    <div className="bg-surface w-full h-[80vh] rounded-t-3xl border-t border-gray-800 flex flex-col overflow-hidden animate-slide-up">
+                        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                            <span className="font-black text-sm">{t('chat.title')}</span>
+                            <button onClick={() => setIsChatOpen(false)} className="p-2"><X/></button>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase">{t('lobby.coverImage')}</label>
-                                <div className="space-y-2">
-                                     <div onClick={() => fileInputRef.current?.click()} className="relative h-32 w-full rounded-xl border-2 border-dashed border-gray-700 hover:border-primary hover:bg-gray-800/50 flex flex-col items-center justify-center cursor-pointer overflow-hidden">
-                                        {(previewUrl || newGameImageUrl) ? (
-                                            <img src={previewUrl || newGameImageUrl} className="w-full h-full object-cover"/>
-                                        ) : (
-                                            <><ImageIcon className="text-gray-600 mb-2"/><span className="text-xs text-gray-500">{t('lobby.uploadImg')}</span></>
-                                        )}
-                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect}/>
-                                     </div>
-                                     <div className="flex items-center gap-2">
-                                         <LinkIcon size={14} className="text-gray-500"/>
-                                         <input type="text" value={newGameImageUrl} onChange={e => { setNewGameImageUrl(e.target.value); setPreviewUrl(null); }} placeholder={t('lobby.pasteUrl')} className="flex-1 bg-black/50 border border-gray-700 rounded px-2 py-1 text-xs"/>
-                                     </div>
+                        <div className="flex-1 overflow-hidden">
+                             <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Game Modal */}
+            {isGameModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
+                    <div className="bg-surface border border-gray-700 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+                        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                            <h3 className="text-xl font-black">{t('lobby.modalTitle')}</h3>
+                            <button onClick={() => setIsGameModalOpen(false)} className="p-2 hover:bg-gray-800 rounded-full transition-colors"><X/></button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{t('lobby.coverImage')}</label>
+                                <div onClick={() => fileInputRef.current?.click()} className="h-40 w-full rounded-2xl border-2 border-dashed border-gray-800 hover:border-primary hover:bg-primary/5 cursor-pointer flex flex-col items-center justify-center transition-all group">
+                                    {previewUrl || newGameImageUrl ? (
+                                        <img src={previewUrl || newGameImageUrl} className="w-full h-full object-cover rounded-2xl"/>
+                                    ) : (
+                                        <>
+                                            <ImageIcon size={32} className="text-gray-700 group-hover:text-primary transition-colors mb-2"/>
+                                            <span className="text-[10px] font-black text-gray-600 uppercase tracking-tighter">{t('lobby.uploadImg')}</span>
+                                        </>
+                                    )}
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect}/>
+                                </div>
+                                <div className="flex items-center gap-2 bg-black/40 border border-gray-800 rounded-xl px-4 py-2.5">
+                                    <LinkIcon size={16} className="text-gray-600"/>
+                                    <input type="text" value={newGameImageUrl} onChange={e => { setNewGameImageUrl(e.target.value); setPreviewUrl(null); }} placeholder={t('lobby.pasteUrl')} className="bg-transparent border-none outline-none text-xs w-full text-white font-bold"/>
                                 </div>
                             </div>
-                            <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} placeholder={t('lobby.gameTitle')} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
-                            <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} placeholder={t('lobby.storeUrl')} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"/>
-                            <select value={newGameGenre} onChange={e => setNewGameGenre(e.target.value as GameGenre)} className="w-full bg-black/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">
-                                {Object.values(GameGenre).map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
+                            <div className="space-y-4">
+                                <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} placeholder={t('lobby.gameTitle')} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all"/>
+                                <select value={newGameGenre} onChange={e => setNewGameGenre(e.target.value as GameGenre)} className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm font-bold text-gray-300">
+                                    {Object.values(GameGenre).map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                            </div>
                         </div>
-                        <div className="p-4 bg-gray-900/50 flex justify-end gap-2">
-                            <button onClick={() => setIsGameModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800">{t('common.cancel')}</button>
-                            <button onClick={handleAddGame} disabled={isUploading || !newGameTitle} className="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-white flex items-center gap-2">
-                                {isUploading ? t('lobby.uploading') : <><Save size={16}/> {t('common.save')}</>}
+                        <div className="p-6 bg-gray-900/50 flex gap-3">
+                            <button onClick={() => setIsGameModalOpen(false)} className="flex-1 py-4 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-800">{t('common.cancel')}</button>
+                            <button onClick={handleAddGame} disabled={isUploading || !newGameTitle} className="flex-1 py-4 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 active:scale-95">
+                                {isUploading ? t('lobby.uploading') : t('common.save')}
                             </button>
                         </div>
                     </div>

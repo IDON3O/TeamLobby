@@ -1,3 +1,4 @@
+
 import { Game, GameGenre, Platform, User } from './types';
 
 export const MOCK_GAMES: Game[] = [
@@ -9,7 +10,9 @@ export const MOCK_GAMES: Game[] = [
     genre: GameGenre.FPS,
     platforms: [Platform.PC, Platform.XBOX, Platform.PS5],
     votedBy: [],
-    tags: ['Co-op', 'Sci-fi', 'Destruction']
+    tags: ['Co-op', 'Sci-fi', 'Destruction'],
+    // Added missing status property
+    status: 'approved'
   },
   {
     id: 'g2',
@@ -19,7 +22,9 @@ export const MOCK_GAMES: Game[] = [
     genre: GameGenre.PUZZLE,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX, Platform.SWITCH],
     votedBy: [],
-    tags: ['Story Rich', 'Puzzle', 'Split Screen']
+    tags: ['Story Rich', 'Puzzle', 'Split Screen'],
+    // Added missing status property
+    status: 'approved'
   },
   {
     id: 'g3',
@@ -29,7 +34,9 @@ export const MOCK_GAMES: Game[] = [
     genre: GameGenre.SURVIVAL,
     platforms: [Platform.PC, Platform.XBOX],
     votedBy: [],
-    tags: ['Survival', 'Open World', 'Viking']
+    tags: ['Survival', 'Open World', 'Viking'],
+    // Added missing status property
+    status: 'approved'
   },
   {
     id: 'g4',
@@ -39,7 +46,9 @@ export const MOCK_GAMES: Game[] = [
     genre: GameGenre.RPG,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX],
     votedBy: [],
-    tags: ['RPG', 'Story', 'D&D']
+    tags: ['RPG', 'Story', 'D&D'],
+    // Added missing status property
+    status: 'approved'
   },
   {
     id: 'g5',
@@ -49,7 +58,9 @@ export const MOCK_GAMES: Game[] = [
     genre: GameGenre.STRATEGY,
     platforms: [Platform.PC, Platform.PS5, Platform.XBOX, Platform.SWITCH],
     votedBy: [],
-    tags: ['Chaos', 'Family', 'Funny']
+    tags: ['Chaos', 'Family', 'Funny'],
+    // Added missing status property
+    status: 'approved'
   }
 ];
 
