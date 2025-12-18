@@ -40,7 +40,7 @@ export interface Game {
 export interface User {
   id: string;
   alias: string;
-  nickname?: string; // Nombre personalizado
+  nickname?: string;
   email?: string; 
   avatarUrl: string;
   platforms: Platform[];
@@ -49,7 +49,8 @@ export interface User {
   isAdmin?: boolean; 
   isBanned?: boolean;
   isMuted?: boolean;
-  score?: number; // Ranking basado en juegos aprobados
+  score?: number;
+  allowGlobalLibrary?: boolean; // Consentimiento para biblioteca global
 }
 
 export interface Message {

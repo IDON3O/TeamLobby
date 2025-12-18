@@ -1,4 +1,3 @@
-
 import { db } from "../firebaseConfig";
 import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
@@ -11,6 +10,15 @@ const GLOBAL_LIBRARY_REF = "library";
 export const updateUserProfile = async (userId: string, data: Partial<User>) => {
     if (!db) return;
     await db.ref(`${USERS_REF}/${userId}`).update(data);
+};
+
+export const subscribeToUserProfile = (userId: string, callback: (user: Partial<User>) => void) => {
+    if (!db) return () => {};
+    const ref = db.ref(`${USERS_REF}/${userId}`);
+    const listener = ref.on('value', (snap) => {
+        if (snap.exists()) callback(snap.val());
+    });
+    return () => ref.off('value', listener);
 };
 
 // --- GESTIÓN DE SALA ---
@@ -103,7 +111,7 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
     const gameWithMeta: Game = { 
         ...game, 
         proposedBy: user.id, 
-        status: user.isAdmin ? 'approved' : 'pending',
+        status: (user.isAdmin || user.allowGlobalLibrary) ? 'pending' : 'pending', // Siempre pending para revisión admin
         votedBy: [user.id] 
     };
 
@@ -112,6 +120,15 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
         const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
         qArray.push(gameWithMeta);
         return qArray;
+    });
+};
+
+export const updateGameInRoom = async (code: string, gameId: string, updatedData: Partial<Game>) => {
+    if (!db) return;
+    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
+    await queueRef.transaction((queue) => {
+        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
+        return qArray.map((g: Game) => g.id === gameId ? { ...g, ...updatedData } : g);
     });
 };
 

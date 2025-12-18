@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Loader2, Gamepad2, Languages } from 'lucide-react';
 import { User } from './types';
 import { onAuthStateChange, signInWithGoogle, createGuestUser } from './services/authService';
+import { subscribeToUserProfile } from './services/roomService';
 import { LanguageProvider, useLanguage } from './services/i18n';
 import Home from './pages/Home';
 import Lobby from './pages/Lobby';
@@ -16,11 +16,26 @@ const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useLanguage();
 
   useEffect(() => {
+    let profileUnsub = () => {};
+    
     const unsubscribe = onAuthStateChange((user) => {
-        setCurrentUser(user);
+        if (user) {
+            setCurrentUser(user);
+            // Suscribirse a cambios en tiempo real del perfil (nickname, score, etc)
+            profileUnsub = subscribeToUserProfile(user.id, (dbData) => {
+                setCurrentUser(prev => prev ? { ...prev, ...dbData } : null);
+            });
+        } else {
+            setCurrentUser(null);
+            profileUnsub();
+        }
         setIsAuthChecking(false);
     });
-    return () => unsubscribe();
+    
+    return () => {
+        unsubscribe();
+        profileUnsub();
+    };
   }, []);
 
   const handleLogin = async () => {
