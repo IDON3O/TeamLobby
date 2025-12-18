@@ -45,19 +45,16 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [newGameDesc, setNewGameDesc] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (code) {
             const unsub = subscribeToRoom(code, (updatedRoom) => {
                 if (!updatedRoom) { navigate('/'); return; }
                 setRoom(updatedRoom);
-                // Si hay un juego seleccionado, actualizar sus datos (votos, comentarios)
                 if (selectedGame) {
                   const updated = updatedRoom.gameQueue.find(g => g.id === selectedGame.id);
                   if (updated) setSelectedGame(updated);
-                  else setSelectedGame(null); // Fue borrado
+                  else setSelectedGame(null);
                 }
             });
             return () => unsub();
@@ -65,9 +62,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     }, [code, navigate, selectedGame?.id]);
 
     const handleLeave = () => navigate('/');
-    
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
-    
     const handleRemove = (id: string) => {
         if (window.confirm("¿Eliminar esta postulación?")) {
             if (room) {
@@ -117,7 +112,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 };
                 await addGameToRoom(room.code, newGame, currentUser);
             }
-            
             closeModal();
         } catch(e) { alert(t('common.error')); } finally { setIsUploading(false); }
     };
@@ -125,7 +119,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const closeModal = () => {
         setIsGameModalOpen(false);
         setEditingGameId(null);
-        setNewGameTitle(''); setNewGameImageUrl(''); setPreviewUrl(null); setNewGameLink(''); setNewGameDesc('');
+        setNewGameTitle(''); setNewGameImageUrl(''); setNewGameLink(''); setNewGameDesc('');
     };
 
     const handleAddComment = (e: React.FormEvent) => {
@@ -150,12 +144,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const members = room.members || [];
     let queue = [...(room.gameQueue || [])];
 
-    // Ordenamiento
     if (activeFilter === 'VOTED') queue.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
-    // Ranking
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
         const totalVotes = proposedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
@@ -163,18 +155,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     }).filter(m => m.totalVotes > 0).sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 3);
 
     const podium = [
-        sortedRanking[1], // 2nd
-        sortedRanking[0], // 1st
-        sortedRanking[2]  // 3rd
+        sortedRanking[1], sortedRanking[0], sortedRanking[2]
     ].filter(Boolean);
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans relative">
             
-            {/* Overlay para cerrar Sidebar en móvil */}
-            {isSidebarOpen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden" onClick={() => setIsSidebarOpen(false)} />
-            )}
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Sidebar */}
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
@@ -197,7 +184,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* Ranking */}
                         {sortedRanking.length > 0 && (
                             <div className="relative pt-8 pb-4 bg-black/20 rounded-2xl border border-gray-800/50">
                                 <div className="flex items-end justify-center gap-2 px-2">
@@ -217,7 +203,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         )}
 
-                        {/* Miembros */}
                         <div className="space-y-2">
                             <div className="px-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">{t('lobby.squad')}</div>
                             {members.map(m => (
@@ -314,116 +299,150 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* MODAL DETALLES DEL JUEGO (EXPANSIÓN) */}
+            {/* MODAL DETALLES DEL JUEGO REDISEÑADO */}
             {selectedGame && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-                <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-300">
-                  <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-50 p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10">
+                <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
+                  <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg">
                     <X size={24}/>
                   </button>
 
-                  {/* Lado Izquierdo: Visual */}
-                  <div className="w-full md:w-1/2 relative bg-gray-900 h-64 md:h-auto shrink-0">
-                    <img src={selectedGame.imageUrl} className="w-full h-full object-cover" />
+                  {/* Cabecera Cinematográfica (Banner Horizontal) */}
+                  <div className="relative w-full h-[200px] md:h-[300px] shrink-0 bg-gray-900">
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl scale-110" 
+                      style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}
+                    />
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <img 
+                        src={selectedGame.imageUrl} 
+                        className="h-full w-auto object-contain max-w-full drop-shadow-2xl" 
+                        alt={selectedGame.title}
+                      />
+                    </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
-                    <div className="absolute bottom-8 left-8 right-8">
-                      <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-2xl">{selectedGame.title}</h3>
-                      <p className="text-primary font-black uppercase tracking-[0.3em] mt-2">{selectedGame.genre}</p>
+                    <div className="absolute bottom-6 left-8 right-8">
+                      <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase drop-shadow-2xl">{selectedGame.title}</h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-primary font-black uppercase tracking-[0.2em] text-xs bg-primary/10 px-3 py-1 rounded-lg border border-primary/20">{selectedGame.genre}</span>
+                        {selectedGame.proposedBy && (
+                          <span className="text-gray-500 font-bold uppercase text-[9px] tracking-widest">Proposed by {members.find(m => m.id === selectedGame.proposedBy)?.nickname || 'Member'}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Lado Derecho: Info y Social */}
-                  <div className="w-full md:w-1/2 flex flex-col h-full overflow-hidden">
-                    <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar space-y-8">
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Game Info</h4>
-                        <p className="text-gray-300 text-sm leading-relaxed italic">"{selectedGame.description}"</p>
-                      </div>
+                  {/* Cuerpo del Modal (Scrollable) */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="p-8 md:p-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
+                      
+                      {/* Info & Platforms */}
+                      <div className="space-y-8">
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                            <Gamepad2 size={14}/> {t('lobby.gameTitle')} Info
+                          </h4>
+                          <p className="text-gray-300 text-sm leading-relaxed italic bg-black/20 p-5 rounded-2xl border border-gray-800/50">
+                            "{selectedGame.description}"
+                          </p>
+                        </div>
 
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Platforms</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedGame.platforms.map(p => (
-                             <div key={p} className="flex items-center gap-2 px-3 py-1.5 bg-black/50 border border-gray-800 rounded-xl text-[10px] font-black text-gray-400">
-                                {p.includes('PC') ? <Monitor size={12}/> : p.includes('Xbox') ? <Box size={12}/> : <Tv size={12}/>} {p}
-                             </div>
-                          ))}
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Available Platforms</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedGame.platforms.map(p => (
+                               <div key={p} className="flex items-center gap-2 px-4 py-2 bg-gray-900 border border-gray-800 rounded-xl text-[10px] font-black text-gray-400">
+                                  {p.includes('PC') ? <Monitor size={14}/> : p.includes('Xbox') ? <Box size={14}/> : <Tv size={14}/>} {p}
+                               </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Sección Comentarios */}
-                      <div className="space-y-4">
+                      {/* Comentarios con Scroll Fijo */}
+                      <div className="space-y-4 flex flex-col h-full">
                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
-                          <MessageCircle size={14}/> {t('lobby.comments')} ({selectedGame.comments?.length || 0})
+                          <MessageCircle size={14}/> {t('lobby.comments')} ({selectedGame.comments ? Object.values(selectedGame.comments).length : 0})
                         </h4>
-                        <div className="space-y-3">
-                          {selectedGame.comments && Object.values(selectedGame.comments).length > 0 ? (
-                            Object.values(selectedGame.comments).map((c: any) => (
-                              <div key={c.id} className="bg-black/40 border border-gray-800/50 p-4 rounded-2xl">
-                                <p className="text-[9px] font-black text-accent uppercase mb-1">{c.userName}</p>
-                                <p className="text-xs text-gray-300">{c.text}</p>
+                        
+                        <div className="flex-1 bg-black/40 border border-gray-800 rounded-2xl p-4 overflow-hidden flex flex-col min-h-[250px] max-h-[300px]">
+                          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                            {selectedGame.comments && Object.values(selectedGame.comments).length > 0 ? (
+                              Object.values(selectedGame.comments).map((c: any) => (
+                                <div key={c.id} className="bg-surface/50 border border-gray-800/50 p-3 rounded-xl">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[9px] font-black text-accent uppercase">{c.userName}</span>
+                                    <span className="text-[8px] text-gray-600">{new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-300 leading-snug">{c.text}</p>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="h-full flex flex-col items-center justify-center opacity-30">
+                                <MessageCircle size={32} className="mb-2"/>
+                                <p className="text-[10px] font-black uppercase tracking-widest">{t('lobby.noComments')}</p>
                               </div>
-                            ))
-                          ) : (
-                            <p className="text-xs text-gray-600 italic px-2">{t('lobby.noComments')}</p>
-                          )}
+                            )}
+                          </div>
+                          
+                          {/* Input Comentario */}
+                          <form onSubmit={handleAddComment} className="relative mt-4 shrink-0">
+                            <input 
+                              type="text" 
+                              value={newComment} 
+                              onChange={e => setNewComment(e.target.value)}
+                              placeholder={t('lobby.addComment')}
+                              className="w-full bg-black border border-gray-800 rounded-xl py-3.5 pl-4 pr-12 text-xs font-bold outline-none focus:border-primary transition-all"
+                            />
+                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-2 hover:bg-primary/10 rounded-lg transition-colors">
+                              <Send size={16}/>
+                            </button>
+                          </form>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Footer del Modal Detalle */}
-                    <div className="p-8 bg-gray-900/50 border-t border-gray-800 space-y-4">
-                      {/* Input de Comentario */}
-                      <form onSubmit={handleAddComment} className="relative">
-                        <input 
-                          type="text" 
-                          value={newComment} 
-                          onChange={e => setNewComment(e.target.value)}
-                          placeholder={t('lobby.addComment')}
-                          className="w-full bg-black border border-gray-800 rounded-2xl py-4 pl-5 pr-12 text-sm font-bold outline-none focus:border-primary transition-all"
-                        />
-                        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-primary p-2 hover:bg-primary/10 rounded-xl">
-                          <Send size={18}/>
-                        </button>
-                      </form>
-
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex gap-2">
-                           {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
-                              <>
-                                <button onClick={() => openEditModal(selectedGame)} className="p-4 bg-gray-800 text-white rounded-2xl hover:bg-primary transition-all shadow-xl">
-                                  <Edit3 size={18}/>
-                                </button>
-                                <button onClick={() => handleRemove(selectedGame.id)} className="p-4 bg-gray-800 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-xl">
-                                  <Trash2 size={18}/>
-                                </button>
-                              </>
-                           )}
-                           {selectedGame.link && (
-                             <a href={selectedGame.link} target="_blank" rel="noreferrer" className="p-4 bg-gray-800 text-white rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl">
-                                <ExternalLink size={18}/>
-                             </a>
-                           )}
-                        </div>
-                        <button 
-                          onClick={() => handleVote(selectedGame.id)} 
-                          className={`flex-1 py-4 px-6 rounded-2xl font-black text-xs tracking-widest flex items-center justify-center gap-3 shadow-xl transition-all ${
-                            selectedGame.votedBy?.includes(currentUser.id) 
-                            ? 'bg-primary text-white' 
-                            : 'bg-white text-black hover:bg-gray-200'
-                          }`}
-                        >
-                          <ThumbsUp size={18} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
-                          VOTE ({selectedGame.votedBy?.length || 0})
-                        </button>
-                      </div>
                     </div>
                   </div>
+
+                  {/* Footer Fijo con Acciones */}
+                  <div className="p-8 bg-gray-900 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0">
+                    <div className="flex items-center gap-3">
+                       {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
+                          <div className="flex gap-2 mr-2">
+                            <button onClick={() => openEditModal(selectedGame)} className="p-4 bg-surface text-gray-400 border border-gray-800 rounded-2xl hover:text-primary hover:border-primary/50 transition-all shadow-xl group">
+                              <Edit3 size={20} className="group-hover:scale-110 transition-transform"/>
+                            </button>
+                            <button onClick={() => handleRemove(selectedGame.id)} className="p-4 bg-surface text-gray-400 border border-gray-800 rounded-2xl hover:text-red-500 hover:border-red-500/50 transition-all shadow-xl group">
+                              <Trash2 size={20} className="group-hover:scale-110 transition-transform"/>
+                            </button>
+                          </div>
+                       )}
+                       {selectedGame.link && (
+                         <a href={selectedGame.link} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-6 py-4 bg-surface border border-gray-800 text-white rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+                            <ExternalLink size={18}/> {t('lobby.coverImage')} Link
+                         </a>
+                       )}
+                    </div>
+
+                    <button 
+                      onClick={() => handleVote(selectedGame.id)} 
+                      className={`w-full md:w-auto min-w-[240px] py-4 px-10 rounded-2xl font-black text-xs tracking-[0.2em] flex items-center justify-center gap-4 shadow-2xl transition-all active:scale-95 ${
+                        selectedGame.votedBy?.includes(currentUser.id) 
+                        ? 'bg-primary text-white shadow-primary/30' 
+                        : 'bg-white text-black hover:bg-gray-200'
+                      }`}
+                    >
+                      <ThumbsUp size={20} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
+                      {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTED' : 'CAST VOTE'} 
+                      <span className="ml-2 bg-black/10 px-2 py-0.5 rounded text-[10px]">{selectedGame.votedBy?.length || 0}</span>
+                    </button>
+                  </div>
+
                 </div>
               </div>
             )}
 
-            {/* Modal de Crear/Editar (Ya existía, ajustado) */}
+            {/* Modal de Crear/Editar */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
