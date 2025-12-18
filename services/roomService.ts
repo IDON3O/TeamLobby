@@ -55,11 +55,22 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
         return { success: false, message: "Invalid Password" };
     }
 
-    await roomRef.child('members').transaction((members) => {
+    const membersRef = roomRef.child('members');
+    
+    await membersRef.transaction((members) => {
         const mArray = Array.isArray(members) ? members : Object.values(members || {});
         const exists = mArray.some((m: User) => m.id === user.id);
         if (!exists) mArray.push(user);
         return mArray;
+    });
+
+    // Cleanup on disconnect
+    membersRef.on('value', (snap) => {
+        const mArray = Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val() || {});
+        const index = mArray.findIndex((m: User) => m.id === user.id);
+        if (index !== -1) {
+            membersRef.child(index.toString()).onDisconnect().remove();
+        }
     });
 
     return { success: true };
@@ -106,7 +117,6 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
 
 export const approveGame = async (game: Game) => {
     if (!db) return;
-    // Guardar en biblioteca global
     const libRef = db.ref(`${GLOBAL_LIBRARY_REF}/${game.id}`);
     await libRef.set({ ...game, status: 'approved' });
 };
@@ -196,9 +206,6 @@ export const removeGameFromRoom = async (code: string, gameId: string, userId: s
     });
 };
 
-// --- NEW ADMIN EXPORTS ---
-
-// Added missing getAllRooms
 export const getAllRooms = async (): Promise<Room[]> => {
     if (!db) return [];
     const snapshot = await db.ref(ROOMS_REF).once('value');
@@ -212,13 +219,11 @@ export const getAllRooms = async (): Promise<Room[]> => {
     }));
 };
 
-// Added missing toggleBanUser
 export const toggleBanUser = async (userId: string, isBanned: boolean) => {
     if (!db) return;
     await db.ref(`${USERS_REF}/${userId}`).update({ isBanned });
 };
 
-// Added missing toggleMuteUser
 export const toggleMuteUser = async (userId: string, isMuted: boolean) => {
     if (!db) return;
     await db.ref(`${USERS_REF}/${userId}`).update({ isMuted });

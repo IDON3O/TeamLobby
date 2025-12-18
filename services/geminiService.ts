@@ -2,14 +2,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Game, Platform, User } from '../types';
 
-// Use process.env.API_KEY strictly as per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const getGameRecommendations = async (
   users: User[],
-  currentGames: Game[]
+  currentGames: Game []
 ): Promise<Game[]> => {
   try {
+    // Instanciar justo antes del uso para asegurar acceso a process.env.API_KEY
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const userPlatforms = Array.from(new Set(users.flatMap(u => u.platforms))).join(', ');
     const existingTitles = currentGames.map(g => g.title).join(', ');
 
@@ -25,7 +25,6 @@ export const getGameRecommendations = async (
       Return a JSON array of objects.
     `;
 
-    // Updated model to gemini-3-flash-preview
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -52,20 +51,18 @@ export const getGameRecommendations = async (
     if (!text) return [];
     const rawData = JSON.parse(text);
     
-    // Map response to Game interface 
     return rawData.map((item: any, index: number) => ({
       id: `rec-${Date.now()}-${index}`,
       title: item.title,
       description: item.description,
-      // Defaulting to empty to trigger Icon Fallback in UI
       imageUrl: "", 
       genre: item.genre, 
-      platforms: [Platform.PC], // Default fallback
+      platforms: [Platform.PC], 
       votedBy: [],
       tags: item.tags || ['Co-op'],
       link: item.link || `https://store.steampowered.com/search/?term=${encodeURIComponent(item.title)}`,
       proposedBy: 'AI',
-      status: 'approved' // Added required status property
+      status: 'approved'
     }));
 
   } catch (error) {
@@ -76,7 +73,7 @@ export const getGameRecommendations = async (
 
 export const generateBotChat = async (lastMessage: string, context: string): Promise<string> => {
     try {
-        // Updated model to gemini-3-flash-preview
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `

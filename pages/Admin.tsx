@@ -34,7 +34,8 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
             // Extraer juegos pendientes de todas las salas
             const pending: Game[] = [];
             allRooms.forEach(r => {
-                const queue = Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {});
+                // Fix: Cast the queue to Game[] to ensure status is accessible on each item
+                const queue = (Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {})) as Game[];
                 queue.forEach(g => {
                     if (g.status === 'pending') pending.push(g);
                 });

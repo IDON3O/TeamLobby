@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Loader2, Gamepad2, Languages } from 'lucide-react';
@@ -7,8 +8,8 @@ import { LanguageProvider, useLanguage } from './services/i18n';
 import Home from './pages/Home';
 import Lobby from './pages/Lobby';
 import Admin from './pages/Admin';
+import Profile from './pages/Profile';
 
-// Componente Wrapper interno para usar el hook useLanguage
 const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -27,7 +28,6 @@ const AppContent: React.FC = () => {
         await signInWithGoogle(); 
       } catch (e: any) { 
         console.error("Login Error:", e);
-        // Mostrar mensaje detallado para depuración
         alert(`${t('auth.loginFailed')}\n\nError: ${e.message || e}`); 
       }
   };
@@ -35,10 +35,6 @@ const AppContent: React.FC = () => {
   const handleGuestLogin = () => {
       setCurrentUser(createGuestUser());
   };
-
-  const toggleLang = () => {
-      setLanguage(language === 'en' ? 'es' : 'en');
-  }
 
   if (isAuthChecking) {
       return (
@@ -51,12 +47,11 @@ const AppContent: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rutas Públicas / Auth */}
         {!currentUser ? (
              <Route path="*" element={
                 <div className="min-h-screen bg-background text-gray-100 flex items-center justify-center p-4 relative overflow-hidden">
                     <div className="absolute top-4 right-4 z-50">
-                        <button onClick={toggleLang} className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-gray-800 rounded-full text-xs font-bold text-gray-400 hover:text-white hover:border-gray-600 transition-colors">
+                        <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-gray-800 rounded-full text-xs font-bold text-gray-400 hover:text-white hover:border-gray-600 transition-colors">
                             <Languages size={14}/> {language.toUpperCase()}
                         </button>
                     </div>
@@ -87,10 +82,10 @@ const AppContent: React.FC = () => {
                 </div>
              } />
         ) : (
-            /* Rutas Protegidas */
             <Route element={<Outlet context={{ currentUser }} />}>
                 <Route path="/" element={<Home currentUser={currentUser} />} />
                 <Route path="/room/:code" element={<Lobby currentUser={currentUser} />} />
+                <Route path="/profile" element={<Profile currentUser={currentUser} />} />
                 <Route path="/admin" element={currentUser.isAdmin ? <Admin currentUser={currentUser} /> : <Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
             </Route>
