@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -10,7 +9,7 @@ import {
 import { Room, User, Message, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
-  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, deleteRoom 
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, deleteRoom, joinRoom 
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -56,6 +55,17 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             return () => unsub();
         }
     }, [code, navigate]);
+
+    // AUTO-SYNC NICK: Si el nick actual del usuario no coincide con el guardado en la sala, actualizar.
+    useEffect(() => {
+        if (room && currentUser && code) {
+            const myMemberEntry = room.members.find(m => m.id === currentUser.id);
+            const myCurrentNick = currentUser.nickname || currentUser.alias;
+            if (myMemberEntry && (myMemberEntry.nickname !== myCurrentNick || myMemberEntry.isAdmin !== currentUser.isAdmin)) {
+                joinRoom(code, currentUser); // Re-join actualiza los datos en la sala
+            }
+        }
+    }, [room?.members, currentUser, code]);
 
     // Handlers
     const handleLeave = () => navigate('/');
@@ -172,10 +182,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
                         <nav className="space-y-1.5">
-                            <button onClick={() => setView('LOBBY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LOBBY' ? 'bg-primary text-white shadow-lg shadow-primary/30 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
+                            <button onClick={() => setView('LOBBY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LOBBY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
                                 <LayoutGrid size={20}/> <span>{t('lobby.viewLobby')}</span>
                             </button>
-                            <button onClick={() => setView('LIBRARY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LIBRARY' ? 'bg-primary text-white shadow-lg shadow-primary/30 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
+                            <button onClick={() => setView('LIBRARY')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LIBRARY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
                                 <Search size={20}/> <span>{t('lobby.viewLibrary')}</span>
                             </button>
                         </nav>
@@ -337,13 +347,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* Botón de Chat Flotante para Móvil */}
+            {/* FAB Chat para Móvil */}
             <button 
                 onClick={() => setIsChatOpen(true)}
-                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform"
+                className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform hover:scale-105"
             >
                 <MessageCircle size={24} />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-surface animate-bounce"></span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-surface"></span>
             </button>
 
             {/* Modal Add/Edit */}

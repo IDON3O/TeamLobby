@@ -1,4 +1,3 @@
-
 import { db } from "../firebaseConfig";
 import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
@@ -31,7 +30,8 @@ export const createRoom = async (host: User, roomName: string, password?: string
     
     const hostData = {
         ...host,
-        nickname: host.nickname || host.alias
+        nickname: host.nickname || host.alias,
+        isReady: false
     };
 
     const newRoom: Room = {
@@ -85,18 +85,19 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
         return { success: false, message: "Invalid Password" };
     }
 
-    const membersRef = roomRef.child('members');
     const userDataToStore = {
         ...user,
         nickname: user.nickname || user.alias
     };
 
+    const membersRef = roomRef.child('members');
     await membersRef.transaction((members) => {
         const mArray = Array.isArray(members) ? members : Object.values(members || {});
         const index = mArray.findIndex((m: User) => m.id === user.id);
         if (index === -1) {
             mArray.push(userDataToStore);
         } else {
+            // Actualizar solo datos de perfil, mantener estado de "listo" si ya estaba
             mArray[index] = { ...mArray[index], ...userDataToStore };
         }
         return mArray;
@@ -105,7 +106,7 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     await updateVisitedRooms(user.id, {
         code,
         name: roomData.name || '',
-        hostAlias: roomData.members?.[0]?.nickname || 'Host',
+        hostAlias: (roomData.members?.[0]?.nickname || roomData.members?.[0]?.alias || 'Host'),
         lastVisited: Date.now()
     });
 
