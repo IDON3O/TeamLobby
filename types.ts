@@ -79,6 +79,7 @@ export interface RoomSummary {
   name: string;
   lastVisited: number;
   hostAlias: string;
+  savedPassword?: string;
 }
 
 export type ViewState = 'LOBBY' | 'LIBRARY' | 'ADMIN' | 'PROFILE';

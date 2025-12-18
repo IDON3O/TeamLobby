@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Gamepad2, LogOut, ShieldCheck, Plus, Clock, Loader2, Ban, Languages, Settings, Lock } from 'lucide-react';
@@ -56,15 +55,27 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
         const targetCode = code.toUpperCase();
         if (!targetCode) return;
         
+        // Intentar recuperar contraseña guardada si no se proporciona una nueva
+        let attemptPassword = password;
+        if (!attemptPassword) {
+            const histItem = history.find(h => h.code === targetCode);
+            if (histItem && histItem.savedPassword) {
+                attemptPassword = histItem.savedPassword;
+            }
+        }
+
         setIsJoiningRoom(true);
         try {
-            const result = await joinRoom(targetCode, currentUser, password);
+            const result = await joinRoom(targetCode, currentUser, attemptPassword);
             if (result.success) {
                 navigate(`/room/${targetCode}`);
             } else if (result.message === "Invalid Password") {
+                // Si la contraseña guardada falló (ej: cambió), pedimos la nueva
                 showAlert({
                     title: "PRIVATE LOBBY",
-                    message: "This room is password protected. Enter it below:",
+                    message: attemptPassword 
+                        ? "The previous password is no longer valid. Enter new key:" 
+                        : "This room is password protected. Enter it below:",
                     type: 'prompt',
                     confirmText: "Access",
                     onConfirm: (val) => handleJoinRoom(targetCode, val)

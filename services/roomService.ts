@@ -57,7 +57,8 @@ export const createRoom = async (host: User, roomName: string, password?: string
         code,
         name: newRoom.name || '',
         hostAlias: hostData.nickname,
-        lastVisited: Date.now()
+        lastVisited: Date.now(),
+        savedPassword: password || ""
     });
 
     return code;
@@ -80,8 +81,12 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     if (!snapshot.exists()) return { success: false, message: "Room not found" };
 
     const roomData = snapshot.val();
-    if (roomData.isPrivate && roomData.hostId !== user.id && roomData.password !== passwordAttempt) {
-        return { success: false, message: "Invalid Password" };
+    
+    // Si la sala es privada y el usuario no es el host, verificamos password
+    if (roomData.isPrivate && roomData.hostId !== user.id) {
+        if (roomData.password !== passwordAttempt) {
+            return { success: false, message: "Invalid Password" };
+        }
     }
 
     const membersRef = roomRef.child('members');
@@ -105,7 +110,8 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
         code,
         name: roomData.name || '',
         hostAlias: roomData.members?.[0]?.nickname || 'Host',
-        lastVisited: Date.now()
+        lastVisited: Date.now(),
+        savedPassword: passwordAttempt || ""
     });
 
     return { success: true };
