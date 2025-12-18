@@ -158,12 +158,18 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
     // LÓGICA DE RANKING ACTUALIZADA:
-    // Solo se cuentan los votos de juegos propuestos por el usuario que tengan MÁS de 2 votos totales.
-    // Esto garantiza que el voto propio inicial no otorgue puntos al ranking y se requiera apoyo comunitario.
+    // 1. "El voto propio no cuenta": Se resta 1 punto por cada juego propuesto (que es el voto automático del autor).
+    // 2. "Más de 2 votos": Solo se suman puntos si el juego tiene 2 o más votos (es decir, al menos 1 voto de un tercero).
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
-        const communityApprovedGames = proposedGames.filter(g => (g.votedBy?.length || 0) > 2);
-        const totalVotes = communityApprovedGames.reduce((acc, curr) => acc + (curr.votedBy?.length || 0), 0);
+        const totalVotes = proposedGames.reduce((acc, g) => {
+            const count = g.votedBy?.length || 0;
+            // Si tiene más de 1 voto (el propio + al menos uno de otro), contamos los votos externos
+            if (count > 1) {
+                return acc + (count - 1); 
+            }
+            return acc;
+        }, 0);
         return { ...m, totalVotes };
     }).filter(m => m.totalVotes > 0).sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 3);
 
@@ -196,8 +202,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
+                        {/* El podio ahora se muestra si al menos un usuario tiene 1 voto de comunidad */}
                         {sortedRanking.length > 0 && (
                             <div className="relative pt-8 pb-4 bg-black/20 rounded-2xl border border-gray-800/50">
+                                <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-50">
+                                    <Trophy size={10} className="text-yellow-500"/>
+                                    <span className="text-[8px] font-black uppercase tracking-tighter">SQUAD LEADERS</span>
+                                </div>
                                 <div className="flex items-end justify-center gap-2 px-2">
                                     {podium.map((m) => {
                                         const isFirst = m.id === sortedRanking[0].id;
