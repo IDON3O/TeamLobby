@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, User } from '../types';
-import { Send, Bot } from 'lucide-react';
+import { Send, Bot, ShieldInfo } from 'lucide-react';
 import { generateBotChat } from '../services/geminiService';
 import { useLanguage } from '../services/i18n';
 
@@ -31,21 +31,21 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, onSendMessage, onRec
     onSendMessage(text);
 
     // Simulate Bot Response if triggered
-    if (text.toLowerCase().includes('@bot') || Math.random() > 0.8) {
+    if (text.toLowerCase().includes('@bot') || Math.random() > 0.85) {
         setIsTyping(true);
         try {
-            const reply = await generateBotChat(text, "Users are discussing games to play.");
+            const reply = await generateBotChat(text, "Users are discussing games to play in the squad lobby.");
             setTimeout(() => {
                 onReceiveMessage({
-                    id: Date.now().toString(),
+                    id: `bot-${Date.now()}`,
                     userId: 'bot',
-                    userName: 'AI System',
+                    userName: 'Co-op Bot',
                     content: reply,
                     timestamp: Date.now(),
-                    isSystem: true
+                    isSystem: false
                 });
                 setIsTyping(false);
-            }, 1500);
+            }, 1200);
         } catch (err) {
             setIsTyping(false);
         }
@@ -55,6 +55,19 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, onSendMessage, onRec
   return (
     <div className="flex flex-col h-full bg-surface/40 backdrop-blur-md">
       <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        {/* WELCOME SYSTEM MESSAGE - ALWAYS PRESENT */}
+        <div className="flex flex-col items-center justify-center py-4 px-6 mb-8 border border-primary/20 bg-primary/5 rounded-[2rem] text-center space-y-3">
+            <div className="bg-primary/20 p-3 rounded-full">
+                <Bot size={24} className="text-primary"/>
+            </div>
+            <div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Squad Communications Hub</h4>
+                <p className="text-[11px] text-gray-400 font-bold mt-2 leading-relaxed italic">
+                    "Welcome to the lobby! Use this channel to coordinate picks. Add games from the library or suggest your own. Tag <span className="text-primary">@bot</span> for suggestions!"
+                </p>
+            </div>
+        </div>
+
         {messages.map((msg) => {
           const isMe = msg.userId === currentUser.id;
           const isBot = msg.userId === 'bot';
@@ -62,17 +75,17 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, onSendMessage, onRec
           
           if (isSystem) return (
             <div key={msg.id} className="flex justify-center">
-              <span className="text-[10px] font-black text-gray-600 bg-black/20 px-4 py-1.5 rounded-full border border-gray-800 uppercase tracking-widest">{msg.content}</span>
+              <span className="text-[9px] font-black text-gray-500 bg-black/40 px-4 py-1.5 rounded-full border border-gray-800 uppercase tracking-widest">{msg.content}</span>
             </div>
           );
 
           return (
             <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
               <div className="flex items-center gap-2 mb-1.5 px-1">
-                 {isBot && <Bot size={12} className="text-primary" />}
-                 <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">{msg.userName}</span>
+                 {isBot && <Bot size={10} className="text-primary" />}
+                 <span className={`text-[9px] font-black uppercase tracking-widest ${isBot ? 'text-primary' : 'text-gray-500'}`}>{msg.userName}</span>
               </div>
-              <div className={`max-w-[85%] rounded-[1.2rem] px-4 py-3 text-xs leading-relaxed shadow-lg ${
+              <div className={`max-w-[85%] rounded-[1.3rem] px-4 py-3 text-xs leading-relaxed shadow-lg transition-all ${
                 isMe 
                   ? 'bg-primary text-white rounded-tr-none' 
                   : isBot 
@@ -85,21 +98,21 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, onSendMessage, onRec
           );
         })}
         {isTyping && (
-             <div className="flex flex-col items-start">
-             <span className="text-[9px] text-gray-500 font-black mb-1.5 uppercase tracking-widest">{t('chat.aiTyping')}</span>
-             <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 rounded-tl-none">
-               <div className="flex gap-1.5">
-                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
-                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-75"></div>
-                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-150"></div>
+             <div className="flex flex-col items-start animate-pulse">
+               <span className="text-[9px] text-primary font-black mb-1.5 uppercase tracking-widest">Co-op Bot is thinking...</span>
+               <div className="bg-gray-900 border border-primary/20 rounded-2xl px-4 py-3 rounded-tl-none">
+                 <div className="flex gap-1.5">
+                   <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
+                   <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-75"></div>
+                   <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-150"></div>
+                 </div>
                </div>
              </div>
-           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSend} className="p-6 bg-gray-900/80 border-t border-gray-800 backdrop-blur-xl">
+      <form onSubmit={handleSend} className="p-6 bg-gray-900/90 border-t border-gray-800 backdrop-blur-2xl">
         <div className="relative group">
           <input
             type="text"
@@ -110,7 +123,8 @@ const Chat: React.FC<ChatProps> = ({ messages, currentUser, onSendMessage, onRec
           />
           <button 
             type="submit"
-            className="absolute right-3 top-1/2 -translate-y-1/2 bg-primary text-white p-2.5 rounded-xl hover:bg-violet-600 transition-all shadow-lg active:scale-90"
+            disabled={!inputText.trim()}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all shadow-lg active:scale-90 ${inputText.trim() ? 'bg-primary text-white hover:bg-violet-600' : 'text-gray-600 cursor-not-allowed'}`}
           >
             <Send size={16} />
           </button>
