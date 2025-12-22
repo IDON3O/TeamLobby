@@ -1,3 +1,4 @@
+
 import { db } from "../firebaseConfig";
 import { Room, Game, User, Message, RoomSummary, Comment } from "../types";
 
@@ -82,7 +83,6 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
 
     const roomData = snapshot.val();
     
-    // Si la sala es privada y el usuario no es el host, verificamos password
     if (roomData.isPrivate && roomData.hostId !== user.id) {
         if (roomData.password !== passwordAttempt) {
             return { success: false, message: "Invalid Password" };
@@ -141,27 +141,16 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
 
 export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
-    
     const isAutoApproved = user.allowGlobalLibrary || user.isAdmin;
     const status = isAutoApproved ? 'approved' : 'pending';
-    
-    const gameWithMeta: Game = { 
-        ...game, 
-        proposedBy: user.id, 
-        status: status,
-        votedBy: [user.id] 
-    };
-
+    const gameWithMeta: Game = { ...game, proposedBy: user.id, status: status, votedBy: [user.id] };
     const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
     await queueRef.transaction((queue) => {
         const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
         qArray.push(gameWithMeta);
         return qArray;
     });
-
-    if (isAutoApproved) {
-        await approveGame(gameWithMeta);
-    }
+    if (isAutoApproved) await approveGame(gameWithMeta);
 };
 
 export const updateGameInRoom = async (code: string, gameId: string, updatedData: Partial<Game>) => {
@@ -207,22 +196,51 @@ export const toggleUserReadyState = async (code: string, userId: string) => {
     });
 };
 
-// --- HELPERS ADMIN ---
+// --- HELPERS ADMIN & PUBLIC ---
+
+/**
+ * Obtiene salas públicas destacadas.
+ * Criterio: Puntuación de popularidad = (Miembros * 5) + (Votos de comunidad).
+ * "Votos de comunidad" son los votos recibidos por juegos que no son del propio autor.
+ */
+export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
+    if (!db) return [];
+    const snapshot = await db.ref(ROOMS_REF).once('value');
+    if (!snapshot.exists()) return [];
+    
+    const data = snapshot.val();
+    const allRooms = Object.values(data).map((r: any) => ({
+        ...r,
+        members: Array.isArray(r.members) ? r.members : Object.values(r.members || {}),
+        gameQueue: Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {})
+    })) as Room[];
+
+    const scoredRooms = allRooms
+        .filter(r => !r.isPrivate)
+        .map(room => {
+            const memberCount = room.members?.length || 0;
+            const nonSelfVotes = room.gameQueue.reduce((acc, game) => {
+                const votes = game.votedBy?.length || 0;
+                // Si tiene más de un voto, el resto son de la comunidad (no del proponente)
+                return acc + Math.max(0, votes - 1);
+            }, 0);
+            
+            const popularityScore = (memberCount * 5) + nonSelfVotes;
+            return { ...room, popularityScore };
+        });
+
+    return scoredRooms
+        .sort((a: any, b: any) => b.popularityScore - a.popularityScore)
+        .slice(0, limit);
+};
 
 export const subscribeToAllUsers = (callback: (users: User[]) => void) => {
     if (!db) return () => {};
     const ref = db.ref(USERS_REF);
     const listener = ref.on('value', snap => {
         const data = snap.val();
-        if (!data) {
-            callback([]);
-            return;
-        }
-        // Transformar objeto de Firebase en Array asegurando que el ID (key) esté presente
-        const userList = Object.entries(data).map(([id, val]: [string, any]) => ({
-            ...val,
-            id: id
-        })).filter(u => (u.alias || u.nickname) && u.avatarUrl); // Filtrar posibles registros incompletos
+        if (!data) { callback([]); return; }
+        const userList = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, id: id })).filter(u => (u.alias || u.nickname) && u.avatarUrl);
         callback(userList);
     });
     return () => ref.off('value', listener);
@@ -232,22 +250,13 @@ export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
     if (!db || !userId) return [];
     const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value');
     if (!snap.exists()) return [];
-    
     const data = snap.val();
     const summaries = Object.values(data) as RoomSummary[];
-    
-    // Validar existencia de las salas para limpiar el historial de enlaces muertos
     const validSummaries: RoomSummary[] = [];
     for (const s of summaries) {
         const rSnap = await db.ref(`${ROOMS_REF}/${s.code}`).once('value');
-        if (rSnap.exists()) {
-            validSummaries.push(s);
-        } else {
-            // Limpieza automática del historial si la sala ya no existe
-            await db.ref(`${USERS_REF}/${userId}/visitedRooms/${s.code}`).remove();
-        }
+        if (rSnap.exists()) { validSummaries.push(s); } else { await db.ref(`${USERS_REF}/${userId}/visitedRooms/${s.code}`).remove(); }
     }
-    
     return validSummaries.sort((a, b) => b.lastVisited - a.lastVisited);
 };
 
@@ -283,9 +292,7 @@ export const removeGameFromRoom = async (code: string, gameId: string, userId: s
     await queueRef.transaction((queue) => {
         const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
         const game = qArray.find((g: Game) => g.id === gameId);
-        if (isAdmin || game?.proposedBy === userId) {
-            return qArray.filter((g: Game) => g.id !== gameId);
-        }
+        if (isAdmin || game?.proposedBy === userId) { return qArray.filter((g: Game) => g.id !== gameId); }
         return qArray;
     });
 };
