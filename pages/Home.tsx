@@ -39,7 +39,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
             getUserRooms(currentUser.id).then(setHistory);
         }
         
-        // Cargar salas destacadas
         getFeaturedRooms(4).then(rooms => {
             setFeaturedRooms(rooms);
             setIsLoadingFeatured(false);
@@ -113,9 +112,8 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
 
     return (
         <div className="min-h-screen bg-background text-gray-100 flex flex-col p-4 md:p-8 relative overflow-x-hidden custom-scrollbar">
-            {/* Background Orbs */}
-            <div className="absolute top-[-10%] right-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-primary/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] left-[-5%] w-[200px] md:w-[400px] h-[200px] md:h-[400px] bg-accent/10 rounded-full blur-[80px] md:blur-[120px] pointer-events-none" />
+            {/* Background Orbs - Subtler */}
+            <div className="absolute top-[-10%] right-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-primary/5 rounded-full blur-[100px] md:blur-[180px] pointer-events-none" />
             
             <header className="flex justify-between items-center mb-10 z-10 max-w-6xl mx-auto w-full bg-surface/30 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] border border-gray-800/50 shadow-2xl">
                 <Link to="/" className="flex items-center gap-3 group">
@@ -154,30 +152,43 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
             </header>
 
             <div className="max-w-6xl mx-auto w-full z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 pb-20">
-                <div className="lg:col-span-8 space-y-8">
-                    {/* Banner Community Hub */}
+                <div className="lg:col-span-8 space-y-10">
+                    {/* Community Lobby Banner - Refined Minimalist */}
                     <div 
                         onClick={() => handleJoinRoom(COMMUNITY_HUB_ID)}
-                        className="relative bg-gradient-to-r from-primary to-accent rounded-[2.5rem] p-8 md:p-12 overflow-hidden group cursor-pointer shadow-2xl shadow-primary/20 hover:scale-[1.01] transition-all"
+                        className="relative bg-surface border-2 border-primary/20 hover:border-primary/60 rounded-[2.5rem] p-8 md:p-12 overflow-hidden group cursor-pointer shadow-[0_0_50px_rgba(139,92,246,0.05)] transition-all duration-500"
                     >
-                        <div className="absolute right-[-20px] top-[-20px] opacity-10 group-hover:scale-125 transition-transform duration-700">
-                            <Globe size={280} />
+                        {/* Decorative background element */}
+                        <div className="absolute -right-10 -bottom-10 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700 rotate-12 group-hover:rotate-0">
+                            <Gamepad2 size={320} />
                         </div>
+                        
                         <div className="relative z-10">
-                            <span className="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white border border-white/10">Official Hub</span>
-                            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mt-4">Squad Hub #{COMMUNITY_HUB_ID}</h2>
-                            <p className="text-white/80 font-bold text-sm mt-3 max-w-lg leading-relaxed italic">Join the global squad to discover what everyone is playing. Vote, suggest, and find your next team.</p>
-                            <button className="mt-8 bg-white text-primary px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 group-hover:gap-5 transition-all shadow-xl active:scale-95">
-                                Enter Hub <ChevronRight size={18}/>
-                            </button>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Global Experience</span>
+                            </div>
+                            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Community Lobby</h2>
+                            <p className="text-gray-500 font-bold text-base mt-4 max-w-lg leading-relaxed italic">
+                                The heart of the squad. Connect with gamers globally, vote on community picks, and discover the next big thing in co-op.
+                            </p>
+                            
+                            <div className="mt-10 flex items-center gap-6">
+                                <button className="bg-primary hover:bg-violet-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 transition-all shadow-xl shadow-primary/20 active:scale-95">
+                                    Join Now <ChevronRight size={18}/>
+                                </button>
+                                <div className="hidden sm:flex items-center gap-2 text-gray-600 font-black text-[10px] uppercase tracking-widest">
+                                    <Users size={14}/> Active Discovery
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* Featured Public Squads */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between px-2">
-                            <h3 className="text-sm font-black flex items-center gap-2 text-gray-500 uppercase tracking-widest">
-                                <Trophy size={16} className="text-yellow-500"/> Featured Public Squads
+                            <h3 className="text-xs font-black flex items-center gap-2 text-gray-600 uppercase tracking-[0.3em]">
+                                <Trophy size={14} className="text-yellow-600"/> Featured Squads
                             </h3>
                         </div>
                         
@@ -193,31 +204,28 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                         <div 
                                             key={room.code}
                                             onClick={() => handleJoinRoom(room.code)}
-                                            className="group bg-surface/40 border border-gray-800 p-6 rounded-[1.5rem] hover:border-primary/50 transition-all cursor-pointer flex justify-between items-center relative overflow-hidden shadow-lg"
+                                            className="group bg-surface/40 border border-gray-800/60 p-6 rounded-[2rem] hover:border-primary/40 hover:bg-surface/60 transition-all cursor-pointer flex justify-between items-center relative overflow-hidden shadow-sm"
                                         >
-                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                                <Users size={80} />
-                                            </div>
                                             <div className="min-w-0 flex items-center gap-5">
-                                                <div className="w-14 h-14 bg-black/40 rounded-2xl flex items-center justify-center text-primary border border-gray-800 font-black italic text-xl shadow-inner">
+                                                <div className="w-12 h-12 bg-black/40 rounded-xl flex items-center justify-center text-gray-700 border border-gray-800 font-black italic text-lg group-hover:text-primary transition-colors">
                                                     #
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="font-black text-white truncate text-lg group-hover:text-primary transition-colors uppercase italic tracking-tighter">{room.name}</h4>
+                                                    <h4 className="font-black text-white truncate text-base group-hover:text-primary transition-colors uppercase italic tracking-tight">{room.name}</h4>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] font-mono font-black text-gray-500 uppercase tracking-widest bg-black/40 px-2 py-0.5 rounded border border-gray-800">ID: {room.code}</span>
+                                                        <span className="text-[9px] font-mono font-black text-gray-600 uppercase tracking-widest">Lobby: {room.code}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 z-10 gap-2">
-                                                <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                                                    <Users size={10} className="text-primary"/>
-                                                    <span className="text-[9px] font-black text-primary uppercase">{room.members?.length || 0}</span>
+                                                <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-800 px-3 py-1 rounded-full">
+                                                    <Users size={10} className="text-gray-500"/>
+                                                    <span className="text-[9px] font-black text-gray-400">{room.members?.length || 0}</span>
                                                 </div>
                                                 {nonSelfVotes > 0 && (
-                                                     <div className="flex items-center gap-1.5 bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
-                                                        <ThumbsUp size={10} className="text-accent"/>
-                                                        <span className="text-[9px] font-black text-accent uppercase">+{nonSelfVotes}</span>
+                                                     <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
+                                                        <ThumbsUp size={10} className="text-primary"/>
+                                                        <span className="text-[9px] font-black text-primary">+{nonSelfVotes}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -225,9 +233,9 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                                     );
                                 })
                             ) : (
-                                <div className="col-span-full py-16 border-2 border-dashed border-gray-800/40 rounded-[2.5rem] flex flex-col items-center justify-center text-gray-600 italic bg-surface/5">
-                                    <Globe size={40} className="mb-4 opacity-10" />
-                                    No public squads found. Lead the way and create one!
+                                <div className="col-span-full py-16 border-2 border-dashed border-gray-800/40 rounded-[2.5rem] flex flex-col items-center justify-center text-gray-700 italic bg-surface/5">
+                                    <Globe size={40} className="mb-4 opacity-5" />
+                                    No public squads available.
                                 </div>
                             )}
                         </div>
