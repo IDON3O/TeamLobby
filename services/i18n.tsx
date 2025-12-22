@@ -12,6 +12,8 @@ const translations = {
     'common.or': 'or',
     'common.update': 'Update',
     'common.back': 'Back',
+    'common.confirm': 'Confirm',
+    'common.delete': 'Delete',
     
     'auth.subtitle': 'Sign in to sync, vote, and lead your squad.',
     'auth.google': 'Sign in with Google',
@@ -31,7 +33,6 @@ const translations = {
     'home.recent': 'Recent Rooms',
     'home.noHistory': 'No recent history.',
     'home.modalTitle': 'Create New Squad',
-    // Added missing Home translations
     'home.roomName': 'Room Name',
     'home.roomNamePlace': 'e.g. Pro Gamers',
     'home.private': 'Private',
@@ -42,8 +43,6 @@ const translations = {
     
     'lobby.roomNotExist': 'Room does not exist.',
     'lobby.copied': 'Copied!',
-    'lobby.menu': 'MENU',
-    'lobby.chat': 'CHAT',
     'lobby.viewLobby': 'Lobby',
     'lobby.viewLibrary': 'Library',
     'lobby.squad': 'SQUAD',
@@ -51,8 +50,6 @@ const translations = {
     'lobby.setReady': 'I AM READY',
     'lobby.notReady': 'Waiting...',
     'lobby.addGame': 'Add Game',
-    'lobby.votedGames': 'Voted Games',
-    'lobby.aiSuggest': 'AI SUGGEST',
     'lobby.queueEmpty': 'Queue is empty. Add from Library!',
     'lobby.searchLib': 'Search library...',
     'lobby.addToQueue': 'ADD TO QUEUE',
@@ -64,31 +61,31 @@ const translations = {
     'lobby.comments': 'Comments',
     'lobby.noComments': 'No comments yet.',
     'lobby.addComment': 'Write a comment...',
-    // Added missing Lobby translations
     'lobby.coverImage': 'Cover Image',
-    'lobby.uploadImg': 'Upload Image',
-    'lobby.pasteUrl': 'Paste image URL...',
     'lobby.gameTitle': 'Game Title',
+    'lobby.leave': 'Leave Lobby',
     
     'profile.title': 'Profile Settings',
     'profile.nickname': 'Nickname',
     'profile.nicknameHint': 'How others will see you',
     'profile.updated': 'Profile updated!',
+    'profile.contributions': 'Public Contributions',
+    'profile.contributionsDesc': 'Your proposed games can be reviewed for the Global Library.',
     
     'admin.dashboard': 'Admin Dashboard',
-    'admin.users': 'User Management',
-    'admin.rooms': 'Active Rooms',
-    'admin.pending': 'Pending Approval',
+    'admin.users': 'Users',
+    'admin.rooms': 'Rooms',
+    'admin.pending': 'Pending',
     'admin.approve': 'Approve',
     'admin.reject': 'Reject',
-    'admin.noPending': 'No pending games.',
-    'admin.roleUser': 'User',
-    'admin.roleAdmin': 'Admin',
-    'admin.makeAdmin': 'Promote to Admin',
     
     'chat.placeholder': 'Type message...',
-    'chat.title': 'SQUAD_CHAT',
-    'chat.aiTyping': 'AI SYSTEM'
+    'chat.title': 'Squad_Channel',
+    'chat.welcome.title': 'Squad Communications Hub',
+    'chat.welcome.text': 'Welcome to the lobby! Coordinate with your team here. Suggest games, vote for your favorites, and get ready for the session.',
+    'chat.system.sync': 'End-to-end synchronized',
+    'chat.status.thinking': 'AI is thinking...',
+    'chat.you': 'YOU'
   },
   es: {
     'common.loading': 'Cargando...',
@@ -98,6 +95,8 @@ const translations = {
     'common.or': 'o',
     'common.update': 'Actualizar',
     'common.back': 'Volver',
+    'common.confirm': 'Confirmar',
+    'common.delete': 'Eliminar',
     
     'auth.subtitle': 'Inicia sesión para sincronizar, votar y liderar.',
     'auth.google': 'Entrar con Google',
@@ -117,7 +116,6 @@ const translations = {
     'home.recent': 'Salas Recientes',
     'home.noHistory': 'Sin historial reciente.',
     'home.modalTitle': 'Crear Nuevo Equipo',
-    // Added missing Home translations
     'home.roomName': 'Nombre de la Sala',
     'home.roomNamePlace': 'ej. Escuadrón Épico',
     'home.private': 'Privada',
@@ -128,8 +126,6 @@ const translations = {
     
     'lobby.roomNotExist': 'La sala no existe.',
     'lobby.copied': '¡Copiado!',
-    'lobby.menu': 'MENÚ',
-    'lobby.chat': 'CHAT',
     'lobby.viewLobby': 'Lobby',
     'lobby.viewLibrary': 'Biblioteca',
     'lobby.squad': 'EQUIPO',
@@ -137,8 +133,6 @@ const translations = {
     'lobby.setReady': 'ESTOY LISTO',
     'lobby.notReady': 'Esperando...',
     'lobby.addGame': 'Añadir Juego',
-    'lobby.votedGames': 'Juegos Votados',
-    'lobby.aiSuggest': 'IA SUGERIR',
     'lobby.queueEmpty': 'Cola vacía. ¡Añade desde la Biblioteca!',
     'lobby.searchLib': 'Buscar en biblioteca...',
     'lobby.addToQueue': 'AÑADIR A COLA',
@@ -150,35 +144,35 @@ const translations = {
     'lobby.comments': 'Comentarios',
     'lobby.noComments': 'Sin comentarios aún.',
     'lobby.addComment': 'Escribe un comentario...',
-    // Added missing Lobby translations
     'lobby.coverImage': 'Imagen de Portada',
-    'lobby.uploadImg': 'Subir Imagen',
-    'lobby.pasteUrl': 'Pegar URL...',
     'lobby.gameTitle': 'Título del Juego',
+    'lobby.leave': 'Salir de la Sala',
     
     'profile.title': 'Ajustes de Perfil',
     'profile.nickname': 'Apodo / Nickname',
     'profile.nicknameHint': 'Cómo te verán los demás',
     'profile.updated': '¡Perfil actualizado!',
+    'profile.contributions': 'Contribuciones Públicas',
+    'profile.contributionsDesc': 'Tus juegos propuestos pueden ser revisados para la Biblioteca Global.',
     
     'admin.dashboard': 'Panel de Administración',
-    'admin.users': 'Gestión de Usuarios',
-    'admin.rooms': 'Salas Activas',
-    'admin.pending': 'Pendientes de Aprobación',
+    'admin.users': 'Usuarios',
+    'admin.rooms': 'Salas',
+    'admin.pending': 'Pendientes',
     'admin.approve': 'Aprobar',
     'admin.reject': 'Rechazar',
-    'admin.noPending': 'No hay juegos pendientes.',
-    'admin.roleUser': 'Usuario',
-    'admin.roleAdmin': 'Admin',
-    'admin.makeAdmin': 'Hacer Admin',
     
     'chat.placeholder': 'Escribe mensaje...',
-    'chat.title': 'CHAT_EQUIPO',
-    'chat.aiTyping': 'SISTEMA IA'
+    'chat.title': 'Canal_Escuadrón',
+    'chat.welcome.title': 'Centro de Comunicaciones',
+    'chat.welcome.text': '¡Bienvenido a la sala! Coordínate con tu equipo aquí. Sugiere juegos, vota por tus favoritos y prepárate para la sesión.',
+    'chat.system.sync': 'Sincronizado punto a punto',
+    'chat.status.thinking': 'La IA está pensando...',
+    'chat.you': 'TÚ'
   }
 };
 
-type TranslationKey = keyof typeof translations['en'];
+export type TranslationKey = keyof typeof translations['en'];
 
 interface LanguageContextType {
   language: Language;

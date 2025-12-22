@@ -7,7 +7,6 @@ export const getGameRecommendations = async (
   currentGames: Game []
 ): Promise<Game[]> => {
   try {
-    // Instanciar justo antes del uso para asegurar acceso a process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const userPlatforms = Array.from(new Set(users.flatMap(u => u.platforms))).join(', ');
@@ -70,23 +69,3 @@ export const getGameRecommendations = async (
     return [];
   }
 };
-
-export const generateBotChat = async (lastMessage: string, context: string): Promise<string> => {
-    try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `
-            Context: ${context}
-            Last User Message: "${lastMessage}"
-            
-            You are a helpful gaming bot assistant named "Co-op Bot". 
-            Reply shortly and enthusiastically to the user. Use gaming slang occasionally.
-            Max 2 sentences.
-            `
-        });
-        return response.text || "Game on! 🎮";
-    } catch (e) {
-        return "Game on! 🎮";
-    }
-}

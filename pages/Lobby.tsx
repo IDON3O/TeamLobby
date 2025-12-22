@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Gamepad2, Menu, Plus, Search, X, 
@@ -68,10 +68,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     
     const handleRemove = (id: string) => {
         showAlert({
-            title: "REMOVE ENTRY",
+            title: t('common.delete'),
             message: "Are you sure you want to delete this game suggestion?",
             type: 'confirm',
-            confirmText: "Delete",
+            confirmText: t('common.delete'),
             onConfirm: () => {
                 if (room) {
                     removeGameFromRoom(room.code, id, currentUser.id, !!currentUser.isAdmin);
@@ -243,7 +243,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         <button onClick={handleReady} className={`w-full py-4 rounded-xl text-xs font-black tracking-widest transition-all mb-3 ${currentUser.isReady ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'bg-gray-800 text-gray-500'}`}>
                             {currentUser.isReady ? t('lobby.ready') : t('lobby.setReady')}
                         </button>
-                        <button onClick={handleLeave} className="w-full py-2 bg-gray-900 border border-gray-800 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-white transition-colors">Leave Lobby</button>
+                        <button onClick={handleLeave} className="w-full py-2 bg-gray-900 border border-gray-800 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-white transition-colors">{t('lobby.leave')}</button>
                     </div>
                 </div>
             </aside>
@@ -278,7 +278,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                             {queue.length === 0 ? (
                                 <div className="h-96 border-2 border-dashed border-gray-800/50 rounded-[3rem] flex flex-col items-center justify-center text-gray-700 italic tracking-widest">
-                                    Queue is empty
+                                    {t('lobby.queueEmpty')}
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-32">
@@ -322,30 +322,35 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
 
                 {/* Floating Chat Universal FAB */}
-                <div className={`fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-4 transition-all duration-500`}>
+                <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-4 transition-all duration-500">
                     {isChatOpen && (
-                        <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/90 backdrop-blur-2xl border border-gray-800/80 rounded-[2.5rem] shadow-[0_20px_80px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-10 fade-in duration-300">
+                        <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/95 backdrop-blur-2xl border border-gray-800/80 rounded-[2.5rem] shadow-[0_20px_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-10 fade-in duration-300">
                             <div className="p-6 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-3">
                                     <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-                                    <span className="font-black text-[11px] tracking-[0.3em] text-white uppercase italic">Squad_Channel</span>
+                                    <span className="font-black text-[11px] tracking-[0.3em] text-white uppercase italic">{t('chat.title')}</span>
                                 </div>
                                 <button onClick={() => setIsChatOpen(false)} className="p-2.5 hover:bg-gray-800 rounded-xl transition-all border border-transparent hover:border-gray-700">
                                     <X size={20}/>
                                 </button>
                             </div>
                             <div className="flex-1 overflow-hidden">
-                                 <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+                                 <Chat 
+                                    messages={room.chatHistory} 
+                                    currentUser={currentUser} 
+                                    onSendMessage={handleSendMsg} 
+                                    onReceiveMessage={() => {}} 
+                                 />
                             </div>
                         </div>
                     )}
                     
                     <button 
                         onClick={() => setIsChatOpen(!isChatOpen)}
-                        className={`group w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border-4 border-background hover:scale-110 relative ${isChatOpen ? 'bg-gray-900 text-white border-gray-800' : 'bg-primary text-white'}`}
+                        className={`group w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-90 border-4 border-background hover:scale-110 relative ${isChatOpen ? 'bg-gray-900 text-white border-gray-800' : 'bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]'}`}
                     >
                         {isChatOpen ? <X size={28} className="animate-in spin-in-90 duration-300" /> : <MessageCircle size={28} className="animate-in zoom-in-50 duration-300" />}
-                        {!isChatOpen && (
+                        {!isChatOpen && room.chatHistory.length > 0 && (
                             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-background shadow-lg flex items-center justify-center">
                                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                             </span>
@@ -355,7 +360,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* Resto de modales (Game Details, Create Game) omitidos por brevedad pero se mantienen funcionales */}
+            {/* Modals */}
             {selectedGame && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
@@ -393,15 +398,15 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         </div>
                         <div className="p-8 space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Game Title</label>
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('lobby.gameTitle')}</label>
                                 <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-sm font-black focus:border-primary outline-none transition-all"/>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Image URL</label>
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('lobby.coverImage')} URL</label>
                                 <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary transition-all"/>
                             </div>
                             <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="w-full py-5 bg-primary text-white rounded-2xl text-[10px] font-black shadow-xl active:scale-95 transition-all uppercase tracking-[0.2em]">
-                                {isUploading ? 'Syncing...' : 'Save Entry'}
+                                {isUploading ? t('lobby.uploading') : t('common.save')}
                             </button>
                         </div>
                     </div>
