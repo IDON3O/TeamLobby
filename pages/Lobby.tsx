@@ -2,15 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  Gamepad2, Users, Menu, LogOut, Plus, Search, Crown, X, 
-  Image as ImageIcon, Loader2, Lock, Copy, Link as LinkIcon,
-  CheckCircle2, Check, MessageCircle, LayoutGrid, Trophy, Trash2,
-  ExternalLink, Edit3, Send, ThumbsUp, ArrowLeft, Monitor, Tv, Box, ImageOff
+  Gamepad2, Menu, Plus, Search, X, 
+  Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
+  ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2
 } from 'lucide-react';
-import { Room, User, Message, Game, GameGenre, Platform, Comment } from '../types';
+import { Room, User, Game, GameGenre, Platform } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
-  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, deleteRoom 
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom 
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -48,11 +47,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    const welcomeSent = useRef(false);
+
     useEffect(() => {
         if (code) {
             const unsub = subscribeToRoom(code, (updatedRoom) => {
                 if (!updatedRoom) { navigate('/'); return; }
                 setRoom(updatedRoom);
+                
+                // Enviar mensaje de bienvenida solo una vez por sesión en la sala
+                if (!welcomeSent.current && updatedRoom) {
+                    welcomeSent.current = true;
+                    handleSendMsg(`👋 ¡Bienvenido al equipo, ${currentUser.nickname || currentUser.alias}! ¿Qué vamos a jugar hoy?`);
+                }
+
                 if (selectedGame) {
                   const updated = updatedRoom.gameQueue.find(g => g.id === selectedGame.id);
                   if (updated) setSelectedGame(updated);
@@ -117,7 +125,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     platforms: [Platform.PC],
                     votedBy: [currentUser.id],
                     tags: ['Custom'],
-                    status: 'pending'
+                    status: 'pending',
+                    proposedBy: currentUser.id
                 };
                 await addGameToRoom(room.code, newGame, currentUser);
             }
@@ -144,9 +153,16 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         setNewComment('');
     };
 
-    const handleSendMsg = (txt: string) => room && sendChatMessage(room.code, {
-        id: `${Date.now()}`, userId: currentUser.id, userName: currentUser.nickname || currentUser.alias, content: txt, timestamp: Date.now()
-    });
+    const handleSendMsg = (txt: string) => {
+        if (!room) return;
+        sendChatMessage(room.code, {
+            id: `${Date.now()}`, 
+            userId: currentUser.id, 
+            userName: currentUser.nickname || currentUser.alias, 
+            content: txt, 
+            timestamp: Date.now()
+        });
+    };
 
     if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
@@ -157,17 +173,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
-    // LÓGICA DE RANKING ACTUALIZADA:
-    // 1. "El voto propio no cuenta": Se resta 1 punto por cada juego propuesto (que es el voto automático del autor).
-    // 2. "Más de 2 votos": Solo se suman puntos si el juego tiene 2 o más votos (es decir, al menos 1 voto de un tercero).
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
         const totalVotes = proposedGames.reduce((acc, g) => {
             const count = g.votedBy?.length || 0;
-            // Si tiene más de 1 voto (el propio + al menos uno de otro), contamos los votos externos
-            if (count > 1) {
-                return acc + (count - 1); 
-            }
+            if (count > 1) return acc + (count - 1); 
             return acc;
         }, 0);
         return { ...m, totalVotes };
@@ -202,7 +212,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* El podio ahora se muestra si al menos un usuario tiene 1 voto de comunidad */}
                         {sortedRanking.length > 0 && (
                             <div className="relative pt-8 pb-4 bg-black/20 rounded-2xl border border-gray-800/50">
                                 <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-50">
@@ -232,7 +241,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-black/20 border-gray-800'}`}>
                                     <img src={m.avatarUrl} className={`w-8 h-8 rounded-full border ${m.isReady ? 'border-green-500' : 'border-gray-800'}`}/>
                                     <p className="text-xs font-bold truncate flex-1">{m.nickname || m.alias}</p>
-                                    {m.isReady && <Check size={12} className="text-green-500" />}
+                                    {/* Fix: CheckCircle2 is now imported and available */}
+                                    {m.isReady && <CheckCircle2 size={12} className="text-green-500" />}
                                 </div>
                             ))}
                         </div>
@@ -247,7 +257,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </aside>
 
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 bg-background relative">
                 <header className="h-16 border-b border-gray-800 flex items-center justify-between px-6 bg-surface/50 backdrop-blur-xl sticky top-0 z-30">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg"><Menu/></button>
@@ -266,7 +276,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-black/10">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
                     {view === 'LOBBY' ? (
                         <div className="space-y-6 max-w-7xl mx-auto w-full">
                             <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
@@ -318,6 +328,36 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                              </div>
                         </div>
                     )}
+                </div>
+
+                {/* Floating Chat Universal */}
+                <div className={`fixed bottom-8 right-8 z-[120] flex flex-col items-end gap-4 transition-all duration-300 ${isChatOpen ? 'w-full max-w-[400px]' : 'w-auto'}`}>
+                    {isChatOpen && (
+                        <div className="w-full bg-surface/90 backdrop-blur-2xl border border-gray-800 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-5 duration-300">
+                            <div className="p-6 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="font-black text-xs tracking-[0.2em] text-white uppercase italic">{t('chat.title')}</span>
+                                </div>
+                                <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-gray-800 rounded-xl transition-colors">
+                                    <X size={20}/>
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                 <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
+                            </div>
+                        </div>
+                    )}
+                    
+                    <button 
+                        onClick={() => setIsChatOpen(!isChatOpen)}
+                        className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-90 border-4 border-background hover:scale-110 ${isChatOpen ? 'bg-red-500 text-white' : 'bg-primary text-white'}`}
+                    >
+                        {isChatOpen ? <X size={28} /> : <MessageCircle size={28} />}
+                        {!isChatOpen && (
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-background shadow-lg flex items-center justify-center text-[8px] font-black">!</span>
+                        )}
+                    </button>
                 </div>
             </main>
 
@@ -501,32 +541,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     </div>
                 </div>
             )}
-
-            <button 
-                onClick={() => setIsChatOpen(true)}
-                className="lg:hidden fixed bottom-8 right-8 w-16 h-16 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-all border-4 border-background"
-            >
-                <MessageCircle size={28} />
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background shadow-lg"></span>
-            </button>
-
-            {isChatOpen && (
-                <div className="fixed inset-0 z-[120] bg-black/80 lg:hidden backdrop-blur-xl flex items-end">
-                    <div className="bg-surface w-full h-[85vh] rounded-t-[3rem] border-t border-gray-800 flex flex-col overflow-hidden animate-slide-up shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
-                        <div className="p-8 border-b border-gray-800 flex justify-between items-center bg-gray-900/60">
-                            <span className="font-black text-sm tracking-[0.3em] text-white uppercase italic">{t('chat.title')}</span>
-                            <button onClick={() => setIsChatOpen(false)} className="p-3 bg-gray-800 rounded-2xl border border-gray-700"><X size={20}/></button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                             <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <aside className="hidden lg:flex w-80 border-l border-gray-800 bg-surface flex-col shrink-0">
-                <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
-            </aside>
         </div>
     );
 };
