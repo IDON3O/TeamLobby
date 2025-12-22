@@ -1,3 +1,4 @@
+
 export enum Platform {
   PC = 'PC',
   PS5 = 'PS5',
@@ -6,12 +7,24 @@ export enum Platform {
 }
 
 export enum GameGenre {
+  ACTION = 'Action',
+  ADVENTURE = 'Adventure',
   RPG = 'RPG',
-  FPS = 'FPS',
+  SHOOTER = 'Shooter',
   STRATEGY = 'Strategy',
+  SIMULATION = 'Simulation',
+  SPORTS = 'Sports',
+  RACING = 'Racing',
+  PLATFORMER = 'Platformer',
+  FIGHTING = 'Fighting',
+  HORROR = 'Horror',
   SURVIVAL = 'Survival',
-  MOBA = 'MOBA',
-  PUZZLE = 'Puzzle'
+  PUZZLE = 'Puzzle',
+  SANDBOX = 'Sandbox',
+  ROGUELIKE = 'Roguelike',
+  INDIE = 'Indie',
+  MULTIPLAYER = 'Multiplayer',
+  CASUAL = 'Casual'
 }
 
 export interface Comment {
@@ -50,7 +63,7 @@ export interface User {
   isBanned?: boolean;
   isMuted?: boolean;
   score?: number;
-  allowGlobalLibrary?: boolean; // Consentimiento para biblioteca global
+  allowGlobalLibrary?: boolean; 
 }
 
 export interface Message {

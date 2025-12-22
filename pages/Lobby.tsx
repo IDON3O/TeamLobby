@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Gamepad2, Menu, Plus, Search, X, 
   Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
-  ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info
+  ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Room, User, Game, GameGenre, Platform } from '../types';
 import { 
@@ -15,7 +15,7 @@ import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
 import Chat from '../components/Chat';
 import GameCard from '../components/GameCard';
-import { useLanguage } from '../services/i18n';
+import { useLanguage, TranslationKey } from '../services/i18n';
 import { useAlert } from '../components/CustomModal';
 
 interface LobbyProps {
@@ -40,12 +40,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [newComment, setNewComment] = useState('');
 
     const [newGameTitle, setNewGameTitle] = useState('');
-    const [newGameGenre, setNewGameGenre] = useState<GameGenre>(GameGenre.FPS);
+    const [newGameGenre, setNewGameGenre] = useState<GameGenre>(GameGenre.ACTION);
     const [newGameLink, setNewGameLink] = useState('');
     const [newGameImageUrl, setNewGameImageUrl] = useState('');
     const [newGameDesc, setNewGameDesc] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [showAllGenres, setShowAllGenres] = useState(false);
 
     useEffect(() => {
         if (code) {
@@ -132,6 +133,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         setEditingGameId(null);
         setSelectedFile(null);
         setNewGameTitle(''); setNewGameImageUrl(''); setNewGameLink(''); setNewGameDesc('');
+        setShowAllGenres(false);
     };
 
     const handleAddComment = (e: React.FormEvent) => {
@@ -180,6 +182,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const podium = [
         sortedRanking[1], sortedRanking[0], sortedRanking[2]
     ].filter(Boolean);
+
+    // Genres logic
+    const allGenreValues = Object.values(GameGenre);
+    const visibleGenres = showAllGenres ? allGenreValues : allGenreValues.slice(0, 6);
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans relative">
@@ -378,7 +384,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <div className="absolute bottom-6 left-8 right-8">
                                 <h3 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter uppercase drop-shadow-2xl leading-none">{selectedGame.title}</h3>
                                 <div className="flex flex-wrap items-center gap-3 mt-4">
-                                    <span className="text-primary font-black uppercase tracking-[0.3em] text-[10px] bg-primary/10 px-4 py-1.5 rounded-lg border border-primary/20">{selectedGame.genre}</span>
+                                    <span className="text-primary font-black uppercase tracking-[0.3em] text-[10px] bg-primary/10 px-4 py-1.5 rounded-lg border border-primary/20">{t(`genre.${selectedGame.genre}` as TranslationKey)}</span>
                                     {selectedGame.proposedBy && (
                                         <span className="text-gray-500 font-bold uppercase text-[9px] tracking-widest flex items-center gap-1.5">
                                             <div className="w-1.5 h-1.5 rounded-full bg-gray-700"/> Proposed by {members.find(m => m.id === selectedGame.proposedBy)?.nickname || 'Squad Member'}
@@ -494,7 +500,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Modal: AÑADIR / ACTUALIZAR ENTRADA DE JUEGO (RESTAURADO) */}
+            {/* Modal: AÑADIR / ACTUALIZAR ENTRADA DE JUEGO */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -507,33 +513,44 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         </div>
                         
                         <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
-                            <div className="space-y-5">
+                            <div className="space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('lobby.gameTitle')}</label>
                                     <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-sm font-black focus:border-primary outline-none transition-all shadow-inner" placeholder="e.g. Elden Ring"/>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Category / Genre</label>
-                                        <div className="relative">
-                                            <select 
-                                                value={newGameGenre} 
-                                                onChange={e => setNewGameGenre(e.target.value as GameGenre)} 
-                                                className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-black text-gray-400 outline-none focus:border-primary appearance-none cursor-pointer"
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Squad Categories</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 animate-in fade-in duration-500">
+                                        {visibleGenres.map(g => (
+                                            <button 
+                                                key={g} 
+                                                onClick={() => setNewGameGenre(g)}
+                                                className={`px-3 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                                                    newGameGenre === g 
+                                                    ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105' 
+                                                    : 'bg-black/40 text-gray-500 border-gray-800 hover:border-gray-600 hover:text-gray-300'
+                                                }`}
                                             >
-                                                {Object.values(GameGenre).map(g => <option key={g} value={g}>{g}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Link Store (URL)</label>
-                                        <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary transition-all shadow-inner" placeholder="https://store.steampowered.com/..."/>
+                                                {t(`genre.${g}` as TranslationKey)}
+                                            </button>
+                                        ))}
+                                        <button 
+                                            onClick={() => setShowAllGenres(!showAllGenres)}
+                                            className="px-3 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest bg-gray-900 text-primary border border-primary/20 flex items-center justify-center gap-1.5 hover:bg-primary/10 transition-all"
+                                        >
+                                            {showAllGenres ? <><ChevronUp size={12}/> {t('common.showLess')}</> : <><ChevronDown size={12}/> {t('common.showMore')}</>}
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('lobby.coverImage')} URL</label>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Store Connection (URL)</label>
+                                    <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary transition-all shadow-inner" placeholder="https://store.steampowered.com/..."/>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">{t('lobby.coverImage')} Link</label>
                                     <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary transition-all shadow-inner" placeholder="https://image-host.com/cover.jpg"/>
                                 </div>
 
@@ -542,7 +559,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     <textarea 
                                         value={newGameDesc} 
                                         onChange={e => setNewGameDesc(e.target.value)} 
-                                        rows={4} 
+                                        rows={3} 
                                         className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold focus:border-primary outline-none transition-all resize-none shadow-inner" 
                                         placeholder="Tell the squad why we should play this..."
                                     />

@@ -7,7 +7,8 @@ export const MOCK_GAMES: Game[] = [
     title: 'Deep Rock Galactic',
     description: 'Danger. Darkness. Dwarves. A 1-4 player co-op FPS featuring badass space Dwarves.',
     imageUrl: 'https://picsum.photos/400/225?random=1',
-    genre: GameGenre.FPS,
+    // Fixing error: GameGenre.FPS does not exist. Using GameGenre.SHOOTER instead.
+    genre: GameGenre.SHOOTER,
     platforms: [Platform.PC, Platform.XBOX, Platform.PS5],
     votedBy: [],
     tags: ['Co-op', 'Sci-fi', 'Destruction'],
