@@ -1,11 +1,11 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+// Added missing React, useState, and useEffect imports
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Gamepad2, Menu, Plus, Search, X, 
   Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
   ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, ChevronDown, ChevronUp,
-  Clock, Dices, Vote, Sparkles, RefreshCcw
+  Clock, Dices, Vote, Sparkles, RefreshCcw, UserPlus
 } from 'lucide-react';
 import { Room, User, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
@@ -141,7 +141,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 <div className="flex items-center gap-3">
                                     <CheckCircle2 size={20}/> <span className="uppercase tracking-widest text-[10px] font-black">READY</span>
                                 </div>
-                                {readyActivityActive && <div className="w-2 h-2 rounded-full bg-white animate-ping" />}
+                                {readyActivityActive && <div className="w-2 h-2 rounded-full bg-secondary animate-ping shadow-[0_0_8px_rgba(16,185,129,0.8)]" />}
                             </button>
                         </nav>
 
@@ -175,11 +175,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <span className="text-[10px] font-mono font-black text-primary/80">#{room.code}</span>
                         </div>
                     </div>
-                    {view === 'LOBBY' && (
-                        <button onClick={() => setIsGameModalOpen(true)} className="bg-primary hover:bg-violet-600 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 transition-all shadow-lg active:scale-95">
-                            <Plus size={20}/> <span className="hidden sm:inline uppercase tracking-widest">Add Game</span>
-                        </button>
-                    )}
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -212,7 +207,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                              </div>
                         </div>
                     ) : (
-                        /* READY VIEW - NEW CONTENT */
+                        /* READY VIEW - CONTROL HUB */
                         <div className="h-full flex flex-col items-center justify-center space-y-8 max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-500">
                              {!room.readySession || room.readySession.status === 'idle' ? (
                                 <div className="text-center space-y-10">
@@ -220,7 +215,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20 mx-auto">
                                             <Sparkles size={48} className="text-primary"/>
                                         </div>
-                                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">Centro de Operaciones</h3>
+                                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">READY COMMAND</h3>
                                         <p className="text-gray-500 font-bold max-w-md mx-auto text-sm leading-relaxed italic">Coordina el inicio de la sesión. Elige un método para decidir qué jugar ahora mismo.</p>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -241,7 +236,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                              ) : (
-                                <div className="w-full bg-surface border border-gray-800 rounded-[3rem] p-10 space-y-10 shadow-2xl relative overflow-hidden">
+                                <div className="w-full bg-surface border border-gray-800 rounded-[3rem] p-8 md:p-12 space-y-10 shadow-2xl relative overflow-hidden">
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-4">
                                             <div className="p-3 bg-gray-900 rounded-2xl border border-gray-800">
@@ -249,63 +244,95 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                             </div>
                                             <div>
                                                 <h3 className="text-xl font-black italic uppercase text-white">{room.readySession.type === 'roulette' ? 'Ruleta del Destino' : 'Voto de Escuadra'}</h3>
-                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{room.readySession.status === 'results' ? 'Resultados Finales' : 'Recopilando Propuestas...'}</p>
+                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{room.readySession.status === 'results' ? 'Resultados Finales' : 'Fase de Selección'}</p>
                                             </div>
                                         </div>
                                         <button onClick={() => resetReadyActivity(room.code)} className="p-3 hover:bg-gray-800 rounded-xl transition-all text-gray-600 hover:text-white"><RefreshCcw size={20}/></button>
                                     </div>
 
                                     {room.readySession.status === 'collecting' && (
-                                        <div className="space-y-8">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                        <div className="space-y-10">
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                                                {/* PROPUESTA DEL USUARIO */}
                                                 <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">¿Qué quieres jugar?</h4>
-                                                    <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                                        {room.gameQueue.map(g => {
-                                                            const isSuggested = room.readySession?.suggestions[currentUser.id]?.gameId === g.id;
-                                                            return (
-                                                                <button 
-                                                                    key={g.id} 
-                                                                    onClick={() => handleReadySuggestion(g)}
-                                                                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${isSuggested ? 'bg-primary/20 border-primary text-white' : 'bg-black/20 border-gray-800 text-gray-400 hover:border-gray-600'}`}
-                                                                >
-                                                                    <span className="text-xs font-black truncate max-w-[140px]">{g.title}</span>
-                                                                    {isSuggested && <CheckCircle2 size={16}/>}
-                                                                </button>
-                                                            );
-                                                        })}
+                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 flex items-center gap-2">
+                                                        <Plus size={14}/> Tu Propuesta (Máx. 1)
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                                                        {room.gameQueue.length === 0 ? (
+                                                            <div className="p-10 border border-dashed border-gray-800 rounded-2xl text-center text-gray-700 font-black text-[10px] uppercase">La cola está vacía</div>
+                                                        ) : (
+                                                            room.gameQueue.map(g => {
+                                                                const suggestions = room.readySession?.suggestions || {};
+                                                                const isSuggested = suggestions[currentUser.id]?.gameId === g.id;
+                                                                return (
+                                                                    <button 
+                                                                        key={g.id} 
+                                                                        onClick={() => handleReadySuggestion(g)}
+                                                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${isSuggested ? 'bg-primary/20 border-primary text-white shadow-lg' : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'}`}
+                                                                    >
+                                                                        <span className="text-xs font-black truncate max-w-[180px]">{g.title}</span>
+                                                                        {isSuggested ? <CheckCircle2 size={16} className="text-primary" /> : <div className="w-4 h-4 rounded-full border border-gray-800" />}
+                                                                    </button>
+                                                                );
+                                                            })
+                                                        )}
                                                     </div>
                                                 </div>
+
+                                                {/* LISTADO DE PARTICIPANTES */}
                                                 <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Participantes ({Object.keys(room.readySession.suggestions || {}).length})</h4>
-                                                    <div className="flex flex-wrap gap-3">
-                                                        {/* Fix: Cast Object.values to any to avoid unknown type errors */}
-                                                        {(Object.values(room.readySession.suggestions || {}) as any[]).map(s => (
-                                                            <div key={s.userName} className="px-4 py-2 bg-gray-900 border border-gray-800 rounded-xl flex items-center gap-2">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                                                <span className="text-[10px] font-black text-white">{s.userName}</span>
-                                                            </div>
-                                                        ))}
+                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 flex items-center gap-2">
+                                                        <UserPlus size={14}/> Escuadra Participante ({Object.keys(room.readySession.suggestions || {}).length})
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 gap-3">
+                                                        {Object.values(room.readySession.suggestions || {}).length === 0 ? (
+                                                            <div className="p-10 border border-dashed border-gray-800 rounded-2xl text-center text-gray-700 font-black text-[10px] uppercase italic">Esperando propuestas...</div>
+                                                        ) : (
+                                                            (Object.values(room.readySession.suggestions || {}) as any[]).map(s => (
+                                                                <div key={s.userName} className="p-4 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-between animate-in slide-in-from-right-4 duration-300">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                                                        <span className="text-[10px] font-black text-white uppercase italic">{s.userName}</span>
+                                                                    </div>
+                                                                    <span className="text-[9px] font-black text-gray-500 tracking-widest">{s.gameTitle}</span>
+                                                                </div>
+                                                            ))
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {room.readySession.type === 'voting' && Object.keys(room.readySession.suggestions).length > 1 && (
-                                                <div className="p-6 bg-secondary/5 border border-secondary/20 rounded-[2rem] space-y-4">
-                                                    <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest text-center">¡Vota por tu favorito!</h4>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                        {/* Fix: Cast Object.values to any to avoid unknown type errors */}
-                                                        {(Object.values(room.readySession.suggestions) as any[]).map(s => {
-                                                            const canVote = s.gameId !== room.readySession?.suggestions[currentUser.id]?.gameId;
-                                                            const hasVoted = room.readySession?.votes[currentUser.id] === s.gameId;
+                                            {/* PANEL DE VOTACIÓN (SOLO SI ES VOTING Y HAY MÁS DE 1 PROPUESTA) */}
+                                            {room.readySession.type === 'voting' && Object.keys(room.readySession.suggestions || {}).length > 1 && (
+                                                <div className="p-8 bg-secondary/5 border border-secondary/20 rounded-[2.5rem] space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                                    <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.4em] text-center">Panel de Votación Democrática</h4>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {(Object.values(room.readySession.suggestions || {}) as any[]).map(s => {
+                                                            const suggestions = room.readySession?.suggestions || {};
+                                                            const votes = room.readySession?.votes || {};
+                                                            const isOwnSuggestion = s.gameId === suggestions[currentUser.id]?.gameId;
+                                                            const hasVotedThis = votes[currentUser.id] === s.gameId;
+                                                            
                                                             return (
                                                                 <button 
                                                                     key={s.gameId}
-                                                                    disabled={!canVote}
+                                                                    disabled={isOwnSuggestion}
                                                                     onClick={() => submitReadyVote(room.code, currentUser.id, s.gameId)}
-                                                                    className={`p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${hasVoted ? 'bg-secondary text-black border-secondary' : canVote ? 'bg-black/40 border-gray-800 text-gray-500 hover:text-white hover:border-gray-600' : 'bg-gray-900 border-gray-900 text-gray-800 opacity-50 cursor-not-allowed'}`}
+                                                                    className={`p-4 rounded-2xl border text-[10px] font-black uppercase transition-all flex flex-col items-center gap-2 group/btn ${
+                                                                        hasVotedThis 
+                                                                        ? 'bg-secondary text-black border-secondary shadow-lg' 
+                                                                        : isOwnSuggestion 
+                                                                            ? 'bg-gray-900 border-gray-900 text-gray-800 opacity-50 cursor-not-allowed italic' 
+                                                                            : 'bg-black/40 border-gray-800 text-gray-500 hover:text-white hover:border-gray-600'
+                                                                    }`}
                                                                 >
-                                                                    {s.gameTitle}
+                                                                    {isOwnSuggestion ? "Tu Propuesta" : s.gameTitle}
+                                                                    {!isOwnSuggestion && (
+                                                                        <div className={`text-[8px] tracking-[0.2em] font-black ${hasVotedThis ? 'text-black/60' : 'text-secondary opacity-0 group-hover/btn:opacity-100'}`}>
+                                                                            {hasVotedThis ? "VOTADO" : "VOTAR"}
+                                                                        </div>
+                                                                    )}
                                                                 </button>
                                                             );
                                                         })}
@@ -315,32 +342,46 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                                             <button 
                                                 onClick={handleResolve}
-                                                disabled={isSpinning || Object.keys(room.readySession.suggestions).length === 0}
-                                                className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.3em] text-xs rounded-2xl shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"
+                                                disabled={isSpinning || Object.keys(room.readySession.suggestions || {}).length === 0}
+                                                className="w-full py-6 bg-white text-black font-black uppercase tracking-[0.4em] text-xs rounded-[2rem] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 hover:bg-gray-200"
                                             >
                                                 {isSpinning ? <Loader2 className="animate-spin" /> : <Sparkles size={20}/>}
-                                                {isSpinning ? 'GIRANDO...' : room.readySession.type === 'roulette' ? 'LANZAR RULETA' : 'FINALIZAR VOTACIÓN'}
+                                                {isSpinning ? 'CALCULANDO...' : room.readySession.type === 'roulette' ? 'LANZAR RULETA' : 'FINALIZAR Y CONTAR VOTOS'}
                                             </button>
                                         </div>
                                     )}
 
                                     {room.readySession.status === 'results' && (
-                                        <div className="flex flex-col items-center py-10 space-y-8 animate-in zoom-in-50 duration-500">
+                                        <div className="flex flex-col items-center py-12 space-y-10 animate-in zoom-in-95 duration-700">
                                             <div className="relative">
-                                                <div className="absolute inset-0 bg-primary/40 blur-[80px] rounded-full animate-pulse" />
-                                                <div className="relative bg-gray-900 border-4 border-primary p-12 rounded-[3rem] shadow-[0_0_60px_rgba(139,92,246,0.3)]">
-                                                    <Trophy size={64} className="text-yellow-500 drop-shadow-2xl mb-4 mx-auto"/>
-                                                    <div className="text-center space-y-2">
-                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em]">¡Tenemos un Ganador!</p>
-                                                        <h4 className="text-3xl font-black text-white uppercase italic tracking-tighter">
-                                                            {Array.isArray(room.readySession.winner) 
-                                                                ? room.gameQueue.filter(g => room.readySession?.winner?.includes(g.id)).map(g => g.title).join(' & ')
-                                                                : room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || 'Juego Eliminado'}
-                                                        </h4>
+                                                <div className="absolute inset-0 bg-primary/30 blur-[100px] rounded-full animate-pulse" />
+                                                <div className="relative bg-gray-900 border-4 border-primary p-12 md:p-16 rounded-[4rem] shadow-[0_0_80px_rgba(139,92,246,0.25)] text-center space-y-6">
+                                                    <Trophy size={80} className="text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] mx-auto mb-4"/>
+                                                    <div className="space-y-3">
+                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em]">ELECCIÓN FINAL</p>
+                                                        {Array.isArray(room.readySession.winner) ? (
+                                                            <div className="space-y-4">
+                                                                <h4 className="text-2xl font-black text-white italic tracking-tighter uppercase">¡EMPATE DE ESCUADRA!</h4>
+                                                                <div className="flex flex-wrap justify-center gap-2">
+                                                                    {room.readySession.winner.map(winId => (
+                                                                        <span key={winId} className="px-5 py-2 bg-primary/20 border border-primary/40 rounded-xl text-xs font-black text-white uppercase italic">
+                                                                            {room.gameQueue.find(g => g.id === winId)?.title || "Juego"}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <h4 className="text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter drop-shadow-lg">
+                                                                {room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || 'Juego Eliminado'}
+                                                            </h4>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button onClick={() => resetReadyActivity(room.code)} className="px-10 py-4 bg-gray-800 hover:bg-white hover:text-black text-gray-400 font-black rounded-2xl transition-all uppercase text-[10px] tracking-widest border border-gray-700">Nueva Selección</button>
+                                            
+                                            <div className="flex gap-4">
+                                                <button onClick={() => resetReadyActivity(room.code)} className="px-12 py-5 bg-gray-800 hover:bg-white hover:text-black text-gray-400 font-black rounded-2xl transition-all uppercase text-[10px] tracking-[0.3em] border border-gray-700 shadow-xl">Reiniciar Proceso</button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -349,28 +390,34 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     )}
                 </div>
 
-                {/* FAB Chat */}
                 <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-4">
                     {isChatOpen && (
                         <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/95 backdrop-blur-2xl border border-gray-800 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-10">
-                             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                                <span className="font-black text-[11px] tracking-widest text-white uppercase">SQUAD_CHANNEL</span>
-                                <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-gray-800 rounded-xl"><X size={20}/></button>
+                             <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    <span className="font-black text-[11px] tracking-[0.3em] text-white uppercase italic">SQUAD_CHANNEL</span>
+                                </div>
+                                <button onClick={() => setIsChatOpen(false)} className="p-2.5 hover:bg-gray-800 rounded-xl transition-all"><X size={20}/></button>
                             </div>
                             <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
                         </div>
                     )}
-                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all ${isChatOpen ? 'bg-gray-900 text-white' : 'bg-primary text-white shadow-primary/20'}`}>
-                        {isChatOpen ? <X size={28} /> : <MessageCircle size={28} />}
+                    <button 
+                        onClick={() => setIsChatOpen(!isChatOpen)} 
+                        className={`group w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-90 border-4 border-background ${isChatOpen ? 'bg-gray-900 text-white' : 'bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]'}`}
+                    >
+                        {isChatOpen ? <X size={28} className="animate-in spin-in-90" /> : <MessageCircle size={28} className="animate-in zoom-in-50" />}
                     </button>
                 </div>
             </main>
 
-            {/* Modal: Game Details (Reducido para brevedad ya que el usuario conoce el flujo) */}
+            {/* Modal: Game Details */}
             {selectedGame && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
                         <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg"><X size={24}/></button>
+                        
                         <div className="relative w-full h-[240px] md:h-[340px] shrink-0 bg-gray-900">
                             <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
                             <div className="relative w-full h-full flex items-center justify-center">
@@ -384,12 +431,37 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-                            <p className="text-gray-300 text-sm leading-relaxed italic bg-black/20 p-6 rounded-2xl border border-gray-800/50">"{selectedGame.description}"</p>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            <div className="p-8 md:p-10">
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                                        <Info size={14}/> Game Summary
+                                    </h4>
+                                    <p className="text-gray-300 text-sm leading-relaxed italic bg-black/20 p-6 rounded-2xl border border-gray-800/50">
+                                        "{selectedGame.description || 'No description provided.'}"
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-8 bg-gray-900 border-t border-gray-800 flex justify-end">
-                            <button onClick={() => handleVote(selectedGame.id)} className={`py-4 px-10 rounded-2xl font-black text-xs tracking-[0.2em] transition-all ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white' : 'bg-white text-black'}`}>
+
+                        <div className="p-8 bg-gray-900 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0">
+                             {selectedGame.link && (
+                                <a href={selectedGame.link} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-8 py-4 bg-surface border border-gray-800 text-white rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+                                    <ExternalLink size={18}/> Web Store
+                                </a>
+                            )}
+                            <button 
+                                onClick={() => handleVote(selectedGame.id)} 
+                                className={`w-full md:w-auto min-w-[260px] py-4 px-10 rounded-2xl font-black text-xs tracking-[0.2em] flex items-center justify-center gap-4 shadow-2xl transition-all active:scale-95 ${
+                                    selectedGame.votedBy?.includes(currentUser.id) 
+                                    ? 'bg-primary text-white shadow-primary/30' 
+                                    : 'bg-white text-black hover:bg-gray-200'
+                                }`}
+                            >
+                                <ThumbsUp size={20} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
                                 {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTED' : 'CAST VOTE'} 
+                                <span className="ml-2 bg-black/10 px-3 py-1 rounded-lg text-[10px]">{selectedGame.votedBy?.length || 0}</span>
                             </button>
                         </div>
                     </div>
@@ -419,12 +491,12 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2">Image Link</label>
-                                <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary" placeholder="URL portadas..."/>
+                                <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-primary shadow-inner" placeholder="URL cover..."/>
                             </div>
                         </div>
                         <div className="p-8 bg-gray-900/60 flex gap-4 border-t border-gray-800">
-                            <button onClick={closeModal} className="flex-1 py-5 rounded-2xl text-[10px] font-black text-gray-600 uppercase tracking-widest">Cancel</button>
-                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-5 bg-primary text-white rounded-2xl text-[10px] font-black shadow-xl shadow-primary/20 active:scale-95 transition-all uppercase tracking-[0.2em]">{isUploading ? 'Uploading...' : 'Save'}</button>
+                            <button onClick={closeModal} className="flex-1 py-5 rounded-2xl text-[10px] font-black text-gray-600 uppercase tracking-widest hover:bg-gray-800 transition-all">Cancel</button>
+                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-5 bg-primary text-white rounded-2xl text-[10px] font-black shadow-xl shadow-primary/20 active:scale-95 transition-all uppercase tracking-[0.2em]">{isUploading ? 'Uploading...' : 'Save Game'}</button>
                         </div>
                     </div>
                 </div>

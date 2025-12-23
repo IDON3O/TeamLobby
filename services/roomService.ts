@@ -117,7 +117,9 @@ export const startReadyActivity = async (code: string, type: 'roulette' | 'votin
 
 export const submitReadySuggestion = async (code: string, userId: string, userName: string, gameId: string, gameTitle: string) => {
     if (!db) return;
+    // Forzar estado Ready al proponer
     await toggleUserReadyState(code, userId, true);
+    // Un juego por usuario (sobreescribe si ya existe)
     await db.ref(`${ROOMS_REF}/${code}/readySession/suggestions/${userId}`).set({
         gameId, gameTitle, userName
     });
@@ -145,16 +147,29 @@ export const resolveReadyActivity = async (code: string) => {
         const winner = suggestions[Math.floor(Math.random() * suggestions.length)];
         await ref.update({ status: 'results', winner: winner.gameId });
     } else {
-        // Voting logic
-        const votes = Object.values(session.votes || {});
+        // Lógica de Votación: No se cuenta el voto propio si existiera (aunque la UI lo bloquea)
+        const votesMap = session.votes || {};
+        const suggestionsMap = session.suggestions || {};
         const counts: Record<string, number> = {};
-        votes.forEach(gid => counts[gid] = (counts[gid] || 0) + 1);
+        
+        Object.entries(votesMap).forEach(([voterId, gameId]) => {
+            // Validación extra: no contar si votó por su propia sugerencia
+            if (suggestionsMap[voterId]?.gameId !== gameId) {
+                counts[gameId] = (counts[gameId] || 0) + 1;
+            }
+        });
         
         let max = 0;
         suggestions.forEach(s => { if ((counts[s.gameId] || 0) > max) max = counts[s.gameId] || 0; });
         
+        // Manejo de empates: todos los que tengan el max de votos
         const winners = suggestions.filter(s => (counts[s.gameId] || 0) === max).map(s => s.gameId);
-        await ref.update({ status: 'results', winner: winners });
+        
+        // Si hay un solo ganador se guarda como string, si hay varios como array
+        await ref.update({ 
+            status: 'results', 
+            winner: winners.length === 1 ? winners[0] : winners 
+        });
     }
 };
 
@@ -205,7 +220,6 @@ export const toggleMuteUser = async (userId: string, isMuted: boolean) => { if (
 export const subscribeToAllUsers = (callback: (users: User[]) => void) => { if (!db) return () => {}; const ref = db.ref(USERS_REF); const listener = ref.on('value', snap => { const data = snap.val(); if (!data) { callback([]); return; } const userList = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, id: id })).filter(u => (u.alias || u.nickname) && u.avatarUrl); callback(userList); }); return () => ref.off('value', listener); };
 export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => { if (!db || !userId) return []; const snap = await db.ref(`${USERS_REF}/${userId}/visitedRooms`).once('value'); if (!snap.exists()) return []; const data = snap.val(); return Object.values(data) as RoomSummary[]; };
 
-// Fix: Added missing getFeaturedRooms export
 export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
     if (!db) return [];
     const snap = await db.ref(ROOMS_REF).limitToLast(20).once('value');
