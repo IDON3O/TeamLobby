@@ -51,7 +51,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     useEffect(() => {
         if (code) {
-            // Limpieza proactiva de la DB al entrar
             cleanupRoomMembers(code);
 
             const unsub = subscribeToRoom(code, (updatedRoom) => {
@@ -64,7 +63,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                   else setSelectedGame(null);
                 }
             });
-            // Cleanup: Al salir de la sala reseteamos el estado ready para evitar fantasmas
             return () => {
                 unsub();
                 leaveRoomCleanly(code, currentUser.id);
@@ -174,30 +172,37 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
-    // Deduplicación visual estricta para asegurar que el podio y la lista sean correctos
+    // Deduplicación y filtrado de seguridad para evitar crashes
     const membersRaw = room.members || [];
     const membersMap = new Map<string, User>();
-    membersRaw.forEach(m => { if(m && m.id) membersMap.set(m.id, m); });
+    membersRaw.forEach(m => { 
+        if(m && m.id && (m.nickname || m.alias)) {
+            membersMap.set(m.id, m); 
+        }
+    });
     const members = Array.from(membersMap.values());
     
-    // Squad sorting: First ready users, then others.
+    // Squad sorting: First ready users, then others. Defensa contra nulos.
     const sortedMembers = [...members].sort((a, b) => {
-        if (a.isReady === b.isReady) return (a.nickname || a.alias).localeCompare(b.nickname || b.alias);
+        if (a.isReady === b.isReady) {
+            const nameA = (a.nickname || a.alias || "").toLowerCase();
+            const nameB = (b.nickname || b.alias || "").toLowerCase();
+            return nameA.localeCompare(nameB);
+        }
         return a.isReady ? -1 : 1;
     });
 
     let queue = [...(room.gameQueue || [])];
-
     if (activeFilter === 'VOTED') queue.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
     else if (activeFilter === 'RECENT') queue.reverse();
     else queue.sort((a, b) => a.title.localeCompare(b.title));
 
+    // Ranking robusto
     const sortedRanking = members.map(m => {
         const proposedGames = queue.filter(g => g.proposedBy === m.id);
         const totalVotes = proposedGames.reduce((acc, g) => {
             const count = g.votedBy?.length || 0;
-            if (count > 1) return acc + (count - 1); 
-            return acc;
+            return acc + Math.max(0, count - 1); 
         }, 0);
         return { ...m, totalVotes };
     }).filter(m => m.totalVotes > 0).sort((a, b) => b.totalVotes - a.totalVotes).slice(0, 3);
@@ -206,13 +211,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         sortedRanking[1], sortedRanking[0], sortedRanking[2]
     ].filter(Boolean);
 
-    // Genres logic
     const allGenreValues = Object.values(GameGenre);
     const visibleGenres = showAllGenres ? allGenreValues : allGenreValues.slice(0, 6);
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans relative">
-            
             {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
@@ -356,7 +359,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                              </div>
                         </div>
                     ) : (
-                        /* READY VIEW SECTION */
                         <div className="h-full flex flex-col items-center justify-center space-y-6 text-center animate-in fade-in duration-700 max-w-lg mx-auto">
                              <div className="relative">
                                 <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20">
@@ -377,7 +379,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     )}
                 </div>
 
-                {/* Floating Chat Universal FAB */}
                 <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-4 transition-all duration-500">
                     {isChatOpen && (
                         <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/95 backdrop-blur-2xl border border-gray-800/80 rounded-[2.5rem] shadow-[0_20px_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-10 fade-in duration-300">
@@ -416,13 +417,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* Modal: DETALLES EXTENDIDOS DEL JUEGO */}
             {selectedGame && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
                         <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg"><X size={24}/></button>
                         
-                        {/* Header Image Section */}
                         <div className="relative w-full h-[240px] md:h-[340px] shrink-0 bg-gray-900">
                             <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
                             <div className="relative w-full h-full flex items-center justify-center">
@@ -442,10 +441,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         </div>
 
-                        {/* Content Area */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
                             <div className="p-8 md:p-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                {/* Left Side: Info */}
                                 <div className="space-y-8">
                                     <div className="space-y-4">
                                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
@@ -468,7 +465,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
 
-                                {/* Right Side: Comments System */}
                                 <div className="space-y-4 flex flex-col h-full min-h-[300px]">
                                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] flex items-center gap-2">
                                         <MessageCircle size={14}/> {t('lobby.comments')} ({selectedGame.comments ? Object.values(selectedGame.comments).length : 0})
@@ -511,7 +507,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         </div>
 
-                        {/* Footer Actions */}
                         <div className="p-8 bg-gray-900 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0">
                             <div className="flex items-center gap-3">
                                 {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
@@ -548,7 +543,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Modal: AÑADIR / ACTUALIZAR ENTRADA DE JUEGO */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">

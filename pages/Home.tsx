@@ -6,7 +6,7 @@ import {
     Languages, Settings, Lock, Globe, Users, Trophy, ChevronRight, ThumbsUp 
 } from 'lucide-react';
 import { User, RoomSummary, Room } from '../types';
-import { createRoom, joinRoom, getUserRooms, getFeaturedRooms } from '../services/roomService';
+import { createRoom, joinRoom, getUserRooms, getFeaturedRooms, subscribeToSettings } from '../services/roomService';
 import { logout } from '../services/authService';
 import { useLanguage } from '../services/i18n';
 import { useAlert } from '../components/CustomModal';
@@ -31,8 +31,7 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
     const [history, setHistory] = useState<RoomSummary[]>([]);
     const [featuredRooms, setFeaturedRooms] = useState<Room[]>([]);
     const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
-
-    const COMMUNITY_HUB_ID = "UC2PI";
+    const [communityHubCode, setCommunityHubCode] = useState("UC2PI");
 
     useEffect(() => {
         if (!currentUser.isGuest) {
@@ -43,6 +42,14 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
             setFeaturedRooms(rooms);
             setIsLoadingFeatured(false);
         });
+
+        const unsubSettings = subscribeToSettings((settings) => {
+            if (settings && settings.communityHubCode) {
+                setCommunityHubCode(settings.communityHubCode);
+            }
+        });
+
+        return () => unsubSettings();
     }, [currentUser]);
 
     const handleLogout = async () => {
@@ -112,7 +119,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
 
     return (
         <div className="min-h-screen bg-background text-gray-100 flex flex-col p-4 md:p-8 relative overflow-x-hidden custom-scrollbar">
-            {/* Background Orbs - Subtler */}
             <div className="absolute top-[-10%] right-[-5%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-primary/5 rounded-full blur-[100px] md:blur-[180px] pointer-events-none" />
             
             <header className="flex justify-between items-center mb-10 z-10 max-w-6xl mx-auto w-full bg-surface/30 backdrop-blur-xl p-4 md:p-6 rounded-[2rem] border border-gray-800/50 shadow-2xl">
@@ -153,12 +159,10 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
 
             <div className="max-w-6xl mx-auto w-full z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 pb-20">
                 <div className="lg:col-span-8 space-y-10">
-                    {/* Community Lobby Banner - Refined Minimalist */}
                     <div 
-                        onClick={() => handleJoinRoom(COMMUNITY_HUB_ID)}
+                        onClick={() => handleJoinRoom(communityHubCode)}
                         className="relative bg-surface border-2 border-primary/20 hover:border-primary/60 rounded-[2.5rem] p-8 md:p-12 overflow-hidden group cursor-pointer shadow-[0_0_50px_rgba(139,92,246,0.05)] transition-all duration-500"
                     >
-                        {/* Decorative background element */}
                         <div className="absolute -right-10 -bottom-10 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700 rotate-12 group-hover:rotate-0">
                             <Gamepad2 size={320} />
                         </div>
@@ -184,7 +188,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                         </div>
                     </div>
 
-                    {/* Featured Public Squads */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between px-2">
                             <h3 className="text-xs font-black flex items-center gap-2 text-gray-600 uppercase tracking-[0.3em]">
@@ -243,7 +246,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 </div>
 
                 <div className="lg:col-span-4 space-y-8">
-                    {/* Action Card: Join/Create */}
                     <div className="bg-surface border border-gray-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Plus size={100}/></div>
                         <div className="relative z-10 space-y-8">
@@ -289,7 +291,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                         </div>
                     </div>
 
-                    {/* History */}
                     <section className="space-y-4">
                         <div className="flex items-center justify-between px-2">
                             <h3 className="text-sm font-black flex items-center gap-2 text-gray-500 uppercase tracking-widest"><Clock size={16}/> {t('home.recent')}</h3>
@@ -325,7 +326,6 @@ const Home: React.FC<HomeProps> = ({ currentUser }) => {
                 </div>
             </div>
 
-            {/* Modal Create */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
                     <div className="bg-surface border border-gray-700 w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">

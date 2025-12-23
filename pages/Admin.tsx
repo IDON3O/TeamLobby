@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, ShieldCheck, ArrowLeft, Loader2, 
-  Shield, Layout, Trash2, ExternalLink, Ban, MicOff, Mic
+  Shield, Layout, Trash2, ExternalLink, Ban, MicOff, Mic,
+  Settings as SettingsIcon, Save, Globe
 } from 'lucide-react';
 import { User, Room, Game } from '../types';
 import { 
   subscribeToAllUsers, getAllRooms, toggleBanUser, 
-  approveGame, updateUserProfile, deleteRoom, toggleMuteUser 
+  approveGame, updateUserProfile, deleteRoom, toggleMuteUser,
+  subscribeToSettings, updateSettings
 } from '../services/roomService';
 import { useLanguage } from '../services/i18n';
 import { useAlert } from '../components/CustomModal';
@@ -26,7 +28,11 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [pendingGames, setPendingGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'users' | 'rooms' | 'pending'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'rooms' | 'pending' | 'settings'>('users');
+    
+    // Global Settings State
+    const [communityHubCode, setCommunityHubCode] = useState("");
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     const loadData = async () => {
         setLoading(true);
@@ -50,11 +56,21 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
     };
 
     useEffect(() => {
-        const unsub = subscribeToAllUsers((updatedUsers) => {
+        const unsubUsers = subscribeToAllUsers((updatedUsers) => {
             setUsers(updatedUsers || []);
         });
+
+        const unsubSettings = subscribeToSettings((settings) => {
+            if (settings && settings.communityHubCode) {
+                setCommunityHubCode(settings.communityHubCode);
+            }
+        });
+
         loadData();
-        return () => unsub();
+        return () => {
+            unsubUsers();
+            unsubSettings();
+        };
     }, []);
 
     const handleApprove = async (game: Game) => {
@@ -84,6 +100,19 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
         await toggleMuteUser(u.id, !u.isMuted);
     };
 
+    const handleSaveSettings = async () => {
+        if (!communityHubCode.trim()) return;
+        setIsSavingSettings(true);
+        try {
+            await updateSettings({ communityHubCode: communityHubCode.toUpperCase() });
+            showAlert({ message: "Global settings updated successfully.", type: 'success' });
+        } catch (e) {
+            showAlert({ message: "Error updating settings.", type: 'error' });
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background text-gray-100 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -99,10 +128,11 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                         </div>
                     </div>
                     
-                    <nav className="flex bg-surface p-1 rounded-2xl border border-gray-800 shadow-xl">
+                    <nav className="flex bg-surface p-1 rounded-2xl border border-gray-800 shadow-xl flex-wrap justify-center md:justify-end">
                         <button onClick={() => setActiveTab('users')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'users' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Users</button>
                         <button onClick={() => setActiveTab('rooms')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'rooms' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Rooms</button>
                         <button onClick={() => setActiveTab('pending')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Pending ({pendingGames.length})</button>
+                        <button onClick={() => setActiveTab('settings')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'settings' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}>Settings</button>
                     </nav>
                 </header>
 
@@ -112,7 +142,7 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                         <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Syncing Database...</p>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-6 animate-in fade-in duration-500">
                         {activeTab === 'users' && (
                             <div className="bg-surface border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
                                 <div className="overflow-x-auto">
@@ -233,6 +263,57 @@ const Admin: React.FC<AdminProps> = ({ currentUser }) => {
                                         </div>
                                     ))
                                 )}
+                            </div>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="bg-surface border border-gray-800 p-8 rounded-[2.5rem] shadow-2xl space-y-8">
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <div className="p-3 bg-primary/10 rounded-2xl text-primary border border-primary/20">
+                                            <Globe size={24}/>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black italic uppercase tracking-tighter">Community Hub Config</h3>
+                                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Define the global squad access point</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 bg-black/40 p-6 rounded-2xl border border-gray-800">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Community Hub Room Code</label>
+                                            <div className="relative group">
+                                                <input 
+                                                    type="text" 
+                                                    value={communityHubCode} 
+                                                    onChange={e => setCommunityHubCode(e.target.value)}
+                                                    className="w-full bg-black border border-gray-800 rounded-2xl py-5 px-6 font-black text-lg tracking-[0.5em] text-center focus:border-primary outline-none transition-all shadow-inner text-primary"
+                                                    placeholder="E.G. UC2PI"
+                                                />
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-800 group-focus-within:text-primary transition-colors">
+                                                    <SettingsIcon size={20} className="animate-spin-slow"/>
+                                                </div>
+                                            </div>
+                                            <p className="text-[9px] text-gray-600 font-bold italic mt-2 px-1">
+                                                * This code determines which room is accessed when users click the "Community Lobby" banner on the home screen.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={handleSaveSettings}
+                                        disabled={isSavingSettings || !communityHubCode.trim()}
+                                        className="w-full py-5 bg-primary text-white rounded-2xl font-black text-xs tracking-[0.3em] uppercase flex items-center justify-center gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-all hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isSavingSettings ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                                        {isSavingSettings ? "Syncing..." : "Update Community Hub"}
+                                    </button>
+                                </div>
+
+                                <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-[2rem] flex items-center gap-5 italic text-gray-500 text-xs leading-relaxed">
+                                    <ShieldCheck size={40} className="text-yellow-500/40 shrink-0"/>
+                                    <p>As an administrator, changing the Community Hub Code affects all users immediately. Make sure the room exists before applying the change.</p>
+                                </div>
                             </div>
                         )}
                     </div>
