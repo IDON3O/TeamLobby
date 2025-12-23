@@ -24,6 +24,49 @@ export const subscribeToUserProfile = (userId: string, callback: (user: Partial<
 
 // --- GESTIÓN DE SALA ---
 
+/**
+ * Limpia duplicados en la base de datos para una sala específica.
+ * Busca miembros que tengan el mismo ID pero diferentes llaves en Firebase.
+ */
+export const cleanupRoomMembers = async (code: string) => {
+    if (!db) return;
+    const membersRef = db.ref(`${ROOMS_REF}/${code}/members`);
+    const snapshot = await membersRef.once('value');
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.val();
+    // Si es un array (error común de Firebase al ver llaves numéricas o push IDs), lo convertimos
+    const rawEntries = Object.entries(data);
+    const seenIds = new Set<string>();
+    const updates: any = {};
+    let hasChanges = false;
+
+    // Iteramos para identificar duplicados y llaves incorrectas
+    rawEntries.forEach(([key, value]: [string, any]) => {
+        if (!value || !value.id) {
+            updates[key] = null; // Borrar basura
+            hasChanges = true;
+            return;
+        }
+
+        // Si la llave no coincide con el ID del usuario, o si ya vimos este ID
+        if (key !== value.id || seenIds.has(value.id)) {
+            updates[key] = null; // Marcamos para borrar la entrada duplicada/incorrecta
+            hasChanges = true;
+        }
+        
+        // Aseguramos que la entrada correcta exista
+        if (!seenIds.has(value.id)) {
+            updates[value.id] = value;
+            seenIds.add(value.id);
+        }
+    });
+
+    if (hasChanges) {
+        await membersRef.update(updates);
+    }
+};
+
 export const createRoom = async (host: User, roomName: string, password?: string): Promise<string> => {
     if (!db) throw new Error("Database not initialized");
     const code = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -72,7 +115,6 @@ export const createRoom = async (host: User, roomName: string, password?: string
     return code;
 };
 
-// Added missing deleteRoom export
 export const deleteRoom = async (code: string) => {
     if (!db) return;
     await db.ref(`${ROOMS_REF}/${code}`).remove();
@@ -80,7 +122,6 @@ export const deleteRoom = async (code: string) => {
 
 export const leaveRoomCleanly = async (code: string, userId: string) => {
     if (!db) return;
-    // Ponemos al usuario como no listo al salir manualmente
     await db.ref(`${ROOMS_REF}/${code}/members/${userId}`).update({ isReady: false });
 };
 
@@ -109,8 +150,11 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
         isReady: false 
     };
 
+    // Al unirse, forzamos limpieza de duplicados previos
+    await cleanupRoomMembers(code);
+
     const memberRef = db.ref(`${ROOMS_REF}/${code}/members/${user.id}`);
-    await memberRef.update(userDataToStore); // Usamos update para no crear nuevas ramas
+    await memberRef.set(userDataToStore); 
     memberRef.child('isReady').onDisconnect().set(false);
 
     await updateVisitedRooms(user.id, {
@@ -130,16 +174,27 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
     const listener = roomRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            // Limpieza estricta de duplicados basada en keys de objeto
-            const membersMap = data.members || {};
-            const gamesMap = data.gameQueue || {};
-            const chatMap = data.chatHistory || {};
+            
+            // Transformación robusta: Firebase a veces devuelve arrays si las llaves son numéricas
+            const parseCollection = (obj: any) => {
+                if (!obj) return [];
+                if (Array.isArray(obj)) return obj.filter(Boolean);
+                return Object.values(obj);
+            };
+
+            const membersList = parseCollection(data.members);
+            
+            // Deduplicación en caliente para el estado de la UI
+            const uniqueMembersMap = new Map();
+            membersList.forEach((m: any) => {
+                if (m && m.id) uniqueMembersMap.set(m.id, m);
+            });
 
             callback({
                 ...data,
-                members: Object.entries(membersMap).map(([id, val]: [string, any]) => ({ ...val, id })),
-                gameQueue: Object.entries(gamesMap).map(([id, val]: [string, any]) => ({ ...val, id })),
-                chatHistory: Object.entries(chatMap).map(([id, val]: [string, any]) => ({ ...val, id }))
+                members: Array.from(uniqueMembersMap.values()),
+                gameQueue: parseCollection(data.gameQueue),
+                chatHistory: parseCollection(data.chatHistory)
             });
         } else {
             // @ts-ignore
@@ -184,6 +239,9 @@ export const toggleUserReadyState = async (code: string, userId: string) => {
     const memberReadyRef = db.ref(`${ROOMS_REF}/${code}/members/${userId}/isReady`);
     const snap = await memberReadyRef.once('value');
     const currentStatus = snap.val() || false;
+    
+    // Primero limpiamos posibles duplicados para que el toggle sea sobre el nodo correcto
+    await cleanupRoomMembers(code);
     await memberReadyRef.set(!currentStatus);
 };
 

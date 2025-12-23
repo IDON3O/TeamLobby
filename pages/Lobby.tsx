@@ -10,7 +10,7 @@ import {
 import { Room, User, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
-  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly, cleanupRoomMembers
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -51,6 +51,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     useEffect(() => {
         if (code) {
+            // Limpieza proactiva de la DB al entrar
+            cleanupRoomMembers(code);
+
             const unsub = subscribeToRoom(code, (updatedRoom) => {
                 if (!updatedRoom) { navigate('/'); return; }
                 setRoom(updatedRoom);
@@ -171,10 +174,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
-    // ELIMINACIÓN DE DUPLICADOS: Filtramos por ID único antes de cualquier operación
+    // Deduplicación visual estricta para asegurar que el podio y la lista sean correctos
     const membersRaw = room.members || [];
     const membersMap = new Map<string, User>();
-    membersRaw.forEach(m => { if(m.id) membersMap.set(m.id, m); });
+    membersRaw.forEach(m => { if(m && m.id) membersMap.set(m.id, m); });
     const members = Array.from(membersMap.values());
     
     // Squad sorting: First ready users, then others.
@@ -215,9 +218,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex flex-col h-full">
                     <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
-                        <Link to="/" onClick={() => code && leaveRoomCleanly(code, currentUser.id)} className="flex items-center gap-2 group">
-                            <Gamepad2 size={24} className="text-primary group-hover:animate-bounce transition-all"/>
-                            <span className="font-black text-xl tracking-tighter uppercase italic text-white group-hover:text-primary transition-colors">TeamLobby</span>
+                        <Link to="/" onClick={() => code && leaveRoomCleanly(code, currentUser.id)} className="flex items-center gap-3 group">
+                            <div className="p-2 bg-primary/20 rounded-xl group-hover:bg-primary/40 transition-colors">
+                                <Gamepad2 size={20} className="text-primary"/>
+                            </div>
+                            <span className="font-black text-xl tracking-tighter uppercase italic text-white">TeamLobby</span>
                         </Link>
                         <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-gray-800 rounded-lg"><X/></button>
                     </div>
