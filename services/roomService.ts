@@ -117,12 +117,15 @@ export const startReadyActivity = async (code: string, type: 'roulette' | 'votin
 
 export const submitReadySuggestion = async (code: string, userId: string, userName: string, gameId: string, gameTitle: string) => {
     if (!db) return;
-    // Forzar estado Ready al proponer
     await toggleUserReadyState(code, userId, true);
-    // Un juego por usuario (sobreescribe si ya existe)
     await db.ref(`${ROOMS_REF}/${code}/readySession/suggestions/${userId}`).set({
         gameId, gameTitle, userName
     });
+};
+
+export const setReadyStatus = async (code: string, status: ReadySession['status']) => {
+    if (!db) return;
+    await db.ref(`${ROOMS_REF}/${code}/readySession/status`).set(status);
 };
 
 export const submitReadyVote = async (code: string, voterId: string, gameId: string) => {
@@ -147,13 +150,11 @@ export const resolveReadyActivity = async (code: string) => {
         const winner = suggestions[Math.floor(Math.random() * suggestions.length)];
         await ref.update({ status: 'results', winner: winner.gameId });
     } else {
-        // Lógica de Votación: No se cuenta el voto propio si existiera (aunque la UI lo bloquea)
         const votesMap = session.votes || {};
         const suggestionsMap = session.suggestions || {};
         const counts: Record<string, number> = {};
         
         Object.entries(votesMap).forEach(([voterId, gameId]) => {
-            // Validación extra: no contar si votó por su propia sugerencia
             if (suggestionsMap[voterId]?.gameId !== gameId) {
                 counts[gameId] = (counts[gameId] || 0) + 1;
             }
@@ -162,13 +163,16 @@ export const resolveReadyActivity = async (code: string) => {
         let max = 0;
         suggestions.forEach(s => { if ((counts[s.gameId] || 0) > max) max = counts[s.gameId] || 0; });
         
-        // Manejo de empates: todos los que tengan el max de votos
-        const winners = suggestions.filter(s => (counts[s.gameId] || 0) === max).map(s => s.gameId);
+        // CORRECCIÓN: Filtrar ganadores para que el array de IDs sea único (por si varios sugirieron lo mismo)
+        const winnerIds = Array.from(new Set(
+            suggestions
+                .filter(s => (counts[s.gameId] || 0) === max)
+                .map(s => s.gameId)
+        ));
         
-        // Si hay un solo ganador se guarda como string, si hay varios como array
         await ref.update({ 
             status: 'results', 
-            winner: winners.length === 1 ? winners[0] : winners 
+            winner: winnerIds.length === 1 ? winnerIds[0] : winnerIds 
         });
     }
 };

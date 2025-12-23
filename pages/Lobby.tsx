@@ -1,17 +1,17 @@
-// Added missing React, useState, and useEffect imports
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Gamepad2, Menu, Plus, Search, X, 
   Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
   ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, ChevronDown, ChevronUp,
-  Clock, Dices, Vote, Sparkles, RefreshCcw, UserPlus
+  Clock, Dices, Vote, Sparkles, RefreshCcw, UserPlus, PlayCircle, Fingerprint
 } from 'lucide-react';
 import { Room, User, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
   toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly, cleanupRoomMembers,
-  startReadyActivity, submitReadySuggestion, submitReadyVote, resolveReadyActivity, resetReadyActivity
+  startReadyActivity, submitReadySuggestion, submitReadyVote, resolveReadyActivity, resetReadyActivity, setReadyStatus
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -50,7 +50,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [showAllGenres, setShowAllGenres] = useState(false);
 
-    // Roulette specific state
     const [isSpinning, setIsSpinning] = useState(false);
 
     useEffect(() => {
@@ -80,15 +79,23 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         if (room) submitReadySuggestion(room.code, currentUser.id, currentUser.nickname || currentUser.alias, game.id, game.title);
     };
 
-    const handleResolve = () => {
-        if (room?.readySession?.type === 'roulette') {
+    const handleAdvancePhase = () => {
+        if (!room || !room.readySession) return;
+        const suggestionsCount = Object.keys(room.readySession.suggestions || {}).length;
+        if (suggestionsCount < 2) {
+            showAlert({ message: "Se requieren al menos 2 juegos propuestos por la escuadra.", type: 'info' });
+            return;
+        }
+
+        if (room.readySession.type === 'roulette') {
             setIsSpinning(true);
             setTimeout(() => {
                 resolveReadyActivity(room.code);
                 setIsSpinning(false);
             }, 3000);
         } else {
-            if (room) resolveReadyActivity(room.code);
+            setReadyStatus(room.code, 'results'); // En votación avanzamos directamente a resultados para contar
+            resolveReadyActivity(room.code);
         }
     };
 
@@ -96,8 +103,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         if (!newGameTitle || !room) return;
         setIsUploading(true);
         try {
-            let finalImg = newGameImageUrl;
-            const gameData: Partial<Game> = { title: newGameTitle, description: newGameDesc || 'User recommended game.', imageUrl: finalImg, genre: newGameGenre, link: newGameLink };
+            const gameData: Partial<Game> = { title: newGameTitle, description: newGameDesc || 'User recommended game.', imageUrl: newGameImageUrl, genre: newGameGenre, link: newGameLink };
             if (editingGameId) await updateGameInRoom(room.code, editingGameId, gameData);
             else {
                 const newGame: Game = { ...gameData as Game, id: `custom-${Date.now()}`, platforms: [Platform.PC], votedBy: [currentUser.id], tags: ['Custom'], status: 'approved', proposedBy: currentUser.id, comments: [] };
@@ -114,6 +120,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const members = room.members || [];
     const sortedMembers = [...members].sort((a, b) => (a.isReady === b.isReady) ? (a.nickname || "").localeCompare(b.nickname || "") : (a.isReady ? -1 : 1));
     const readyActivityActive = room.readySession?.active && room.readySession?.status !== 'idle';
+    const suggestions = room.readySession?.suggestions || {};
+    const votes = room.readySession?.votes || {};
 
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans relative">
@@ -207,7 +215,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                              </div>
                         </div>
                     ) : (
-                        /* READY VIEW - CONTROL HUB */
+                        /* READY VIEW - MEJORADO */
                         <div className="h-full flex flex-col items-center justify-center space-y-8 max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-500">
                              {!room.readySession || room.readySession.status === 'idle' ? (
                                 <div className="text-center space-y-10">
@@ -215,22 +223,22 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20 mx-auto">
                                             <Sparkles size={48} className="text-primary"/>
                                         </div>
-                                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">READY COMMAND</h3>
-                                        <p className="text-gray-500 font-bold max-w-md mx-auto text-sm leading-relaxed italic">Coordina el inicio de la sesión. Elige un método para decidir qué jugar ahora mismo.</p>
+                                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">COMMAND CENTER</h3>
+                                        <p className="text-gray-500 font-bold max-w-md mx-auto text-sm leading-relaxed italic">Inicia una sesión para decidir qué jugar con tu escuadra.</p>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <button onClick={() => handleStartActivity('roulette')} className="group p-8 bg-surface border-2 border-gray-800 rounded-[2.5rem] hover:border-primary/50 transition-all text-left space-y-4 shadow-xl">
+                                        <button onClick={() => handleStartActivity('roulette')} className="group p-8 bg-surface border-2 border-gray-800 rounded-[2.5rem] hover:border-primary transition-all text-left space-y-4 shadow-xl">
                                             <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform"><Dices size={28}/></div>
                                             <div>
-                                                <h4 className="font-black text-lg text-white uppercase italic tracking-tighter">Ruleta del Destino</h4>
-                                                <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">Azar puro entre vuestras propuestas.</p>
+                                                <h4 className="font-black text-lg text-white uppercase italic tracking-tighter">Ruleta</h4>
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">Azar entre las sugerencias.</p>
                                             </div>
                                         </button>
-                                        <button onClick={() => handleStartActivity('voting')} className="group p-8 bg-surface border-2 border-gray-800 rounded-[2.5rem] hover:border-secondary/50 transition-all text-left space-y-4 shadow-xl">
+                                        <button onClick={() => handleStartActivity('voting')} className="group p-8 bg-surface border-2 border-gray-800 rounded-[2.5rem] hover:border-secondary transition-all text-left space-y-4 shadow-xl">
                                             <div className="w-12 h-12 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary group-hover:scale-110 transition-transform"><Vote size={28}/></div>
                                             <div>
-                                                <h4 className="font-black text-lg text-white uppercase italic tracking-tighter">Voto de Escuadra</h4>
-                                                <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">Votación democrática sin auto-voto.</p>
+                                                <h4 className="font-black text-lg text-white uppercase italic tracking-tighter">Votación</h4>
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">Democracia pura de escuadra.</p>
                                             </div>
                                         </button>
                                     </div>
@@ -244,7 +252,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                             </div>
                                             <div>
                                                 <h3 className="text-xl font-black italic uppercase text-white">{room.readySession.type === 'roulette' ? 'Ruleta del Destino' : 'Voto de Escuadra'}</h3>
-                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{room.readySession.status === 'results' ? 'Resultados Finales' : 'Fase de Selección'}</p>
+                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Estado: {room.readySession.status}</p>
                                             </div>
                                         </div>
                                         <button onClick={() => resetReadyActivity(room.code)} className="p-3 hover:bg-gray-800 rounded-xl transition-all text-gray-600 hover:text-white"><RefreshCcw size={20}/></button>
@@ -253,26 +261,24 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     {room.readySession.status === 'collecting' && (
                                         <div className="space-y-10">
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                                {/* PROPUESTA DEL USUARIO */}
                                                 <div className="space-y-4">
                                                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 flex items-center gap-2">
-                                                        <Plus size={14}/> Tu Propuesta (Máx. 1)
+                                                        <Plus size={14}/> Propón un juego
                                                     </h4>
-                                                    <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                                                         {room.gameQueue.length === 0 ? (
-                                                            <div className="p-10 border border-dashed border-gray-800 rounded-2xl text-center text-gray-700 font-black text-[10px] uppercase">La cola está vacía</div>
+                                                            <div className="p-10 border border-dashed border-gray-800 rounded-2xl text-center text-gray-700 font-black text-[10px] uppercase">Agrega juegos a la cola primero</div>
                                                         ) : (
                                                             room.gameQueue.map(g => {
-                                                                const suggestions = room.readySession?.suggestions || {};
-                                                                const isSuggested = suggestions[currentUser.id]?.gameId === g.id;
+                                                                const isSuggested = suggestions?.[currentUser.id]?.gameId === g.id;
                                                                 return (
                                                                     <button 
                                                                         key={g.id} 
                                                                         onClick={() => handleReadySuggestion(g)}
-                                                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${isSuggested ? 'bg-primary/20 border-primary text-white shadow-lg' : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-600 hover:text-gray-300'}`}
+                                                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${isSuggested ? 'bg-primary/20 border-primary text-white' : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-600'}`}
                                                                     >
-                                                                        <span className="text-xs font-black truncate max-w-[180px]">{g.title}</span>
-                                                                        {isSuggested ? <CheckCircle2 size={16} className="text-primary" /> : <div className="w-4 h-4 rounded-full border border-gray-800" />}
+                                                                        <span className="text-xs font-black truncate">{g.title}</span>
+                                                                        {isSuggested && <CheckCircle2 size={16} className="text-primary" />}
                                                                     </button>
                                                                 );
                                                             })
@@ -280,21 +286,17 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                                     </div>
                                                 </div>
 
-                                                {/* LISTADO DE PARTICIPANTES */}
                                                 <div className="space-y-4">
                                                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 flex items-center gap-2">
-                                                        <UserPlus size={14}/> Escuadra Participante ({Object.keys(room.readySession.suggestions || {}).length})
+                                                        <UserPlus size={14}/> Escuadra Participante ({Object.keys(suggestions).length})
                                                     </h4>
-                                                    <div className="grid grid-cols-1 gap-3">
-                                                        {Object.values(room.readySession.suggestions || {}).length === 0 ? (
+                                                    <div className="space-y-3">
+                                                        {Object.values(suggestions).length === 0 ? (
                                                             <div className="p-10 border border-dashed border-gray-800 rounded-2xl text-center text-gray-700 font-black text-[10px] uppercase italic">Esperando propuestas...</div>
                                                         ) : (
-                                                            (Object.values(room.readySession.suggestions || {}) as any[]).map(s => (
-                                                                <div key={s.userName} className="p-4 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-between animate-in slide-in-from-right-4 duration-300">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                                                        <span className="text-[10px] font-black text-white uppercase italic">{s.userName}</span>
-                                                                    </div>
+                                                            Object.values(suggestions).map((s: any) => (
+                                                                <div key={s.userName + s.gameId} className="p-4 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-between animate-in slide-in-from-right-4 duration-300">
+                                                                    <span className="text-[10px] font-black text-white uppercase italic">{s.userName}</span>
                                                                     <span className="text-[9px] font-black text-gray-500 tracking-widest">{s.gameTitle}</span>
                                                                 </div>
                                                             ))
@@ -303,51 +305,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                                 </div>
                                             </div>
 
-                                            {/* PANEL DE VOTACIÓN (SOLO SI ES VOTING Y HAY MÁS DE 1 PROPUESTA) */}
-                                            {room.readySession.type === 'voting' && Object.keys(room.readySession.suggestions || {}).length > 1 && (
-                                                <div className="p-8 bg-secondary/5 border border-secondary/20 rounded-[2.5rem] space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                                    <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.4em] text-center">Panel de Votación Democrática</h4>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {(Object.values(room.readySession.suggestions || {}) as any[]).map(s => {
-                                                            const suggestions = room.readySession?.suggestions || {};
-                                                            const votes = room.readySession?.votes || {};
-                                                            const isOwnSuggestion = s.gameId === suggestions[currentUser.id]?.gameId;
-                                                            const hasVotedThis = votes[currentUser.id] === s.gameId;
-                                                            
-                                                            return (
-                                                                <button 
-                                                                    key={s.gameId}
-                                                                    disabled={isOwnSuggestion}
-                                                                    onClick={() => submitReadyVote(room.code, currentUser.id, s.gameId)}
-                                                                    className={`p-4 rounded-2xl border text-[10px] font-black uppercase transition-all flex flex-col items-center gap-2 group/btn ${
-                                                                        hasVotedThis 
-                                                                        ? 'bg-secondary text-black border-secondary shadow-lg' 
-                                                                        : isOwnSuggestion 
-                                                                            ? 'bg-gray-900 border-gray-900 text-gray-800 opacity-50 cursor-not-allowed italic' 
-                                                                            : 'bg-black/40 border-gray-800 text-gray-500 hover:text-white hover:border-gray-600'
-                                                                    }`}
-                                                                >
-                                                                    {isOwnSuggestion ? "Tu Propuesta" : s.gameTitle}
-                                                                    {!isOwnSuggestion && (
-                                                                        <div className={`text-[8px] tracking-[0.2em] font-black ${hasVotedThis ? 'text-black/60' : 'text-secondary opacity-0 group-hover/btn:opacity-100'}`}>
-                                                                            {hasVotedThis ? "VOTADO" : "VOTAR"}
-                                                                        </div>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
+                                            {Object.keys(suggestions).length >= 2 ? (
+                                                <button 
+                                                    onClick={handleAdvancePhase}
+                                                    disabled={isSpinning}
+                                                    className="w-full py-6 bg-white text-black font-black uppercase tracking-[0.4em] text-xs rounded-[2rem] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"
+                                                >
+                                                    {isSpinning ? <Loader2 className="animate-spin" /> : <PlayCircle size={20}/>}
+                                                    {isSpinning ? 'SPINNING...' : room.readySession.type === 'roulette' ? 'LANZAR RULETA' : 'INICIAR VOTACIÓN'}
+                                                </button>
+                                            ) : (
+                                                <div className="p-6 bg-gray-900/50 border border-dashed border-gray-800 rounded-2xl text-center">
+                                                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Esperando al menos 2 propuestas para continuar...</p>
                                                 </div>
                                             )}
-
-                                            <button 
-                                                onClick={handleResolve}
-                                                disabled={isSpinning || Object.keys(room.readySession.suggestions || {}).length === 0}
-                                                className="w-full py-6 bg-white text-black font-black uppercase tracking-[0.4em] text-xs rounded-[2rem] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 hover:bg-gray-200"
-                                            >
-                                                {isSpinning ? <Loader2 className="animate-spin" /> : <Sparkles size={20}/>}
-                                                {isSpinning ? 'CALCULANDO...' : room.readySession.type === 'roulette' ? 'LANZAR RULETA' : 'FINALIZAR Y CONTAR VOTOS'}
-                                            </button>
                                         </div>
                                     )}
 
@@ -355,33 +326,27 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         <div className="flex flex-col items-center py-12 space-y-10 animate-in zoom-in-95 duration-700">
                                             <div className="relative">
                                                 <div className="absolute inset-0 bg-primary/30 blur-[100px] rounded-full animate-pulse" />
-                                                <div className="relative bg-gray-900 border-4 border-primary p-12 md:p-16 rounded-[4rem] shadow-[0_0_80px_rgba(139,92,246,0.25)] text-center space-y-6">
-                                                    <Trophy size={80} className="text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] mx-auto mb-4"/>
+                                                <div className="relative bg-gray-900 border-4 border-primary p-12 rounded-[4rem] text-center space-y-6">
+                                                    <Trophy size={80} className="text-yellow-500 mx-auto mb-4"/>
                                                     <div className="space-y-3">
-                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em]">ELECCIÓN FINAL</p>
+                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em]">RESULTADO FINAL</p>
                                                         {Array.isArray(room.readySession.winner) ? (
-                                                            <div className="space-y-4">
-                                                                <h4 className="text-2xl font-black text-white italic tracking-tighter uppercase">¡EMPATE DE ESCUADRA!</h4>
-                                                                <div className="flex flex-wrap justify-center gap-2">
-                                                                    {room.readySession.winner.map(winId => (
-                                                                        <span key={winId} className="px-5 py-2 bg-primary/20 border border-primary/40 rounded-xl text-xs font-black text-white uppercase italic">
-                                                                            {room.gameQueue.find(g => g.id === winId)?.title || "Juego"}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
+                                                            <div className="flex flex-wrap justify-center gap-2">
+                                                                {room.readySession.winner.map(winId => (
+                                                                    <span key={winId} className="px-5 py-2 bg-primary/20 border border-primary/40 rounded-xl text-xs font-black text-white uppercase italic">
+                                                                        {room.gameQueue.find(g => g.id === winId)?.title || "Juego"}
+                                                                    </span>
+                                                                ))}
                                                             </div>
                                                         ) : (
-                                                            <h4 className="text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter drop-shadow-lg">
-                                                                {room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || 'Juego Eliminado'}
+                                                            <h4 className="text-3xl md:text-5xl font-black text-white uppercase italic tracking-tighter">
+                                                                {room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || 'Juego Seleccionado'}
                                                             </h4>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            
-                                            <div className="flex gap-4">
-                                                <button onClick={() => resetReadyActivity(room.code)} className="px-12 py-5 bg-gray-800 hover:bg-white hover:text-black text-gray-400 font-black rounded-2xl transition-all uppercase text-[10px] tracking-[0.3em] border border-gray-700 shadow-xl">Reiniciar Proceso</button>
-                                            </div>
+                                            <button onClick={() => resetReadyActivity(room.code)} className="px-12 py-5 bg-gray-800 text-gray-400 font-black rounded-2xl transition-all uppercase text-[10px] tracking-[0.3em]">Reiniciar Actividad</button>
                                         </div>
                                     )}
                                 </div>
