@@ -4,9 +4,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Gamepad2, Menu, Plus, Search, X, 
   Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
-  ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, ChevronDown, ChevronUp
+  ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, ChevronDown, ChevronUp,
+  Clock
 } from 'lucide-react';
-import { Room, User, Game, GameGenre, Platform } from '../types';
+import { Room, User, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
   toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom 
@@ -29,7 +30,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const { showAlert } = useAlert();
     
     const [room, setRoom] = useState<Room | null>(null);
-    const [view, setView] = useState<'LOBBY' | 'LIBRARY'>('LOBBY');
+    const [view, setView] = useState<ViewState>('LOBBY');
     const [activeFilter, setActiveFilter] = useState<'ALL' | 'VOTED' | 'RECENT'>('ALL');
     
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -163,6 +164,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
     const members = room.members || [];
+    
+    // Squad sorting: First ready users, then others
+    const sortedMembers = [...members].sort((a, b) => {
+        if (a.isReady === b.isReady) return 0;
+        return a.isReady ? -1 : 1;
+    });
+
     let queue = [...(room.gameQueue || [])];
 
     if (activeFilter === 'VOTED') queue.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
@@ -210,6 +218,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <button onClick={() => { setView('LIBRARY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LIBRARY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
                                 <Search size={20}/> <span>{t('lobby.viewLibrary')}</span>
                             </button>
+                            <button onClick={() => { setView('READY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'READY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
+                                <CheckCircle2 size={20}/> <span className="uppercase tracking-widest text-[10px]">Ready List</span>
+                            </button>
                         </nav>
 
                         {sortedRanking.length > 0 && (
@@ -237,11 +248,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                         <div className="space-y-2">
                             <div className="px-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">{t('lobby.squad')}</div>
-                            {members.map(m => (
+                            {sortedMembers.map(m => (
                                 <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-black/20 border-gray-800'}`}>
-                                    <img src={m.avatarUrl} className={`w-8 h-8 rounded-full border ${m.isReady ? 'border-green-500' : 'border-gray-800'}`}/>
-                                    <p className="text-xs font-bold truncate flex-1">{m.nickname || m.alias}</p>
-                                    {m.isReady && <CheckCircle2 size={12} className="text-green-500" />}
+                                    <img src={m.avatarUrl} className={`w-8 h-8 rounded-full border ${m.isReady ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]' : 'border-gray-800 grayscale'}`}/>
+                                    <p className={`text-xs font-bold truncate flex-1 ${m.isReady ? 'text-green-500' : 'text-gray-500'}`}>{m.nickname || m.alias}</p>
+                                    {m.isReady && <CheckCircle2 size={12} className="text-green-500 animate-pulse" />}
                                 </div>
                             ))}
                         </div>
@@ -303,7 +314,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                             )}
                         </div>
-                    ) : (
+                    ) : view === 'LIBRARY' ? (
                         <div className="max-w-7xl mx-auto space-y-8 w-full">
                              <div className="relative group">
                                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary" size={24}/>
@@ -324,6 +335,23 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         </button>
                                     </div>
                                 ))}
+                             </div>
+                        </div>
+                    ) : (
+                        /* READY VIEW SECTION */
+                        <div className="h-full flex flex-col items-center justify-center space-y-6 text-center animate-in fade-in duration-700">
+                             <div className="relative">
+                                <CheckCircle2 size={80} className="text-green-500/20" strokeWidth={1}/>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <Clock size={32} className="text-gray-800 animate-spin-slow"/>
+                                </div>
+                             </div>
+                             <div className="space-y-2">
+                                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-gray-700">Ready Up Dashboard</h3>
+                                <p className="text-[10px] font-black text-gray-800 uppercase tracking-[0.3em]">Module under construction</p>
+                             </div>
+                             <div className="max-w-xs p-6 border border-gray-800 rounded-[2rem] bg-black/20 text-xs text-gray-600 font-bold italic leading-relaxed">
+                                Soon you will be able to see advanced stats of who is ready, session countdowns, and match-up history.
                              </div>
                         </div>
                     )}

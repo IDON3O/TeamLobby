@@ -95,4 +95,4 @@ export interface RoomSummary {
   savedPassword?: string;
 }
 
-export type ViewState = 'LOBBY' | 'LIBRARY' | 'ADMIN' | 'PROFILE';
+export type ViewState = 'LOBBY' | 'LIBRARY' | 'ADMIN' | 'PROFILE' | 'READY';

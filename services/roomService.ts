@@ -31,16 +31,19 @@ export const createRoom = async (host: User, roomName: string, password?: string
     
     const hostData = {
         ...host,
-        nickname: host.nickname || host.alias
+        nickname: host.nickname || host.alias,
+        isReady: false // Reset ready on creation
     };
 
-    const newRoom: Room = {
+    const newRoom: any = {
         code,
         name: roomName || `Room ${code}`,
         isPrivate: !!password,
         password: password || "",
         hostId: host.id,
-        members: [hostData],
+        members: {
+            [host.id]: hostData
+        },
         gameQueue: [],
         createdAt: Date.now(),
         chatHistory: [{
@@ -54,6 +57,10 @@ export const createRoom = async (host: User, roomName: string, password?: string
     };
 
     await roomRef.set(newRoom);
+    
+    // Setup disconnect for host
+    db.ref(`${ROOMS_REF}/${code}/members/${host.id}/isReady`).onDisconnect().set(false);
+
     await updateVisitedRooms(host.id, {
         code,
         name: newRoom.name || '',
@@ -89,27 +96,23 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
         }
     }
 
-    const membersRef = roomRef.child('members');
     const userDataToStore = {
         ...user,
-        nickname: user.nickname || user.alias
+        nickname: user.nickname || user.alias,
+        isReady: false // Always join as not ready
     };
 
-    await membersRef.transaction((members) => {
-        const mArray = Array.isArray(members) ? members : Object.values(members || {});
-        const index = mArray.findIndex((m: User) => m.id === user.id);
-        if (index === -1) {
-            mArray.push(userDataToStore);
-        } else {
-            mArray[index] = { ...mArray[index], ...userDataToStore };
-        }
-        return mArray;
-    });
+    // Use specific ID ref to handle onDisconnect cleanly
+    const memberRef = db.ref(`${ROOMS_REF}/${code}/members/${user.id}`);
+    await memberRef.set(userDataToStore);
+    
+    // CRITICAL: Deactivate ready state on disconnect
+    memberRef.child('isReady').onDisconnect().set(false);
 
     await updateVisitedRooms(user.id, {
         code,
         name: roomData.name || '',
-        hostAlias: roomData.members?.[0]?.nickname || 'Host',
+        hostAlias: roomData.members?.[Object.keys(roomData.members)[0]]?.nickname || 'Host',
         lastVisited: Date.now(),
         savedPassword: passwordAttempt || ""
     });
@@ -186,23 +189,14 @@ export const addCommentToGame = async (roomCode: string, gameId: string, comment
 
 export const toggleUserReadyState = async (code: string, userId: string) => {
     if (!db) return;
-    const membersRef = db.ref(`${ROOMS_REF}/${code}/members`);
-    await membersRef.transaction((members) => {
-        const mArray = Array.isArray(members) ? members : Object.values(members || {});
-        return mArray.map((m: User) => {
-            if (m.id === userId) return { ...m, isReady: !m.isReady };
-            return m;
-        });
-    });
+    const memberReadyRef = db.ref(`${ROOMS_REF}/${code}/members/${userId}/isReady`);
+    const snap = await memberReadyRef.once('value');
+    const currentStatus = snap.val() || false;
+    await memberReadyRef.set(!currentStatus);
 };
 
 // --- HELPERS ADMIN & PUBLIC ---
 
-/**
- * Obtiene salas públicas destacadas.
- * Criterio: Puntuación de popularidad = (Miembros * 5) + (Votos de comunidad).
- * "Votos de comunidad" son los votos recibidos por juegos que no son del propio autor.
- */
 export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
     if (!db) return [];
     const snapshot = await db.ref(ROOMS_REF).once('value');
@@ -221,7 +215,6 @@ export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
             const memberCount = room.members?.length || 0;
             const nonSelfVotes = room.gameQueue.reduce((acc, game) => {
                 const votes = game.votedBy?.length || 0;
-                // Si tiene más de un voto, el resto son de la comunidad (no del proponente)
                 return acc + Math.max(0, votes - 1);
             }, 0);
             
