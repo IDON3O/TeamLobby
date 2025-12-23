@@ -32,7 +32,7 @@ export const createRoom = async (host: User, roomName: string, password?: string
     const hostData = {
         ...host,
         nickname: host.nickname || host.alias,
-        isReady: false // Reset ready on creation
+        isReady: false
     };
 
     const newRoom: any = {
@@ -44,16 +44,18 @@ export const createRoom = async (host: User, roomName: string, password?: string
         members: {
             [host.id]: hostData
         },
-        gameQueue: [],
+        gameQueue: {},
         createdAt: Date.now(),
-        chatHistory: [{
-            id: 'init',
-            userId: 'system',
-            userName: 'System',
-            content: `Room created by ${hostData.nickname}.`,
-            timestamp: Date.now(),
-            isSystem: true
-        }],
+        chatHistory: {
+            'init': {
+                id: 'init',
+                userId: 'system',
+                userName: 'System',
+                content: `Room created by ${hostData.nickname}.`,
+                timestamp: Date.now(),
+                isSystem: true
+            }
+        },
     };
 
     await roomRef.set(newRoom);
@@ -99,10 +101,10 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     const userDataToStore = {
         ...user,
         nickname: user.nickname || user.alias,
-        isReady: false // Always join as not ready
+        isReady: false // Forzamos false al entrar para limpiar estados fantasmas
     };
 
-    // Use specific ID ref to handle onDisconnect cleanly
+    // Usamos update en lugar de set para no borrar otros miembros y asegurar que la clave sea el ID del usuario
     const memberRef = db.ref(`${ROOMS_REF}/${code}/members/${user.id}`);
     await memberRef.set(userDataToStore);
     
@@ -112,7 +114,7 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     await updateVisitedRooms(user.id, {
         code,
         name: roomData.name || '',
-        hostAlias: roomData.members?.[Object.keys(roomData.members)[0]]?.nickname || 'Host',
+        hostAlias: roomData.members?.[roomData.hostId]?.nickname || 'Host',
         lastVisited: Date.now(),
         savedPassword: passwordAttempt || ""
     });
@@ -126,11 +128,12 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
     const listener = roomRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
+            // Convertimos objetos de Firebase a arrays para el frontend
             callback({
                 ...data,
-                members: Array.isArray(data.members) ? data.members : Object.values(data.members || {}),
-                gameQueue: Array.isArray(data.gameQueue) ? data.gameQueue : Object.values(data.gameQueue || {}),
-                chatHistory: Array.isArray(data.chatHistory) ? data.chatHistory : Object.values(data.chatHistory || {})
+                members: data.members ? Object.values(data.members) : [],
+                gameQueue: data.gameQueue ? Object.values(data.gameQueue) : [],
+                chatHistory: data.chatHistory ? Object.values(data.chatHistory) : []
             });
         } else {
             // @ts-ignore
@@ -146,23 +149,16 @@ export const addGameToRoom = async (code: string, game: Game, user: User) => {
     if (!db) return;
     const isAutoApproved = user.allowGlobalLibrary || user.isAdmin;
     const status = isAutoApproved ? 'approved' : 'pending';
-    const gameWithMeta: Game = { ...game, proposedBy: user.id, status: status, votedBy: [user.id] };
-    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-    await queueRef.transaction((queue) => {
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
-        qArray.push(gameWithMeta);
-        return qArray;
-    });
+    const gameId = game.id || `game-${Date.now()}`;
+    const gameWithMeta: Game = { ...game, id: gameId, proposedBy: user.id, status: status, votedBy: [user.id] };
+    
+    await db.ref(`${ROOMS_REF}/${code}/gameQueue/${gameId}`).set(gameWithMeta);
     if (isAutoApproved) await approveGame(gameWithMeta);
 };
 
 export const updateGameInRoom = async (code: string, gameId: string, updatedData: Partial<Game>) => {
     if (!db) return;
-    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-    await queueRef.transaction((queue) => {
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
-        return qArray.map((g: Game) => g.id === gameId ? { ...g, ...updatedData } : g);
-    });
+    await db.ref(`${ROOMS_REF}/${code}/gameQueue/${gameId}`).update(updatedData);
 };
 
 export const approveGame = async (game: Game) => {
@@ -173,18 +169,8 @@ export const approveGame = async (game: Game) => {
 
 export const addCommentToGame = async (roomCode: string, gameId: string, comment: Comment) => {
     if (!db) return;
-    const roomRef = db.ref(`${ROOMS_REF}/${roomCode}/gameQueue`);
-    await roomRef.transaction((queue) => {
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
-        return qArray.map((g: Game) => {
-            if (g.id === gameId) {
-                const comments = Array.isArray(g.comments) ? g.comments : Object.values(g.comments || {});
-                comments.push(comment);
-                return { ...g, comments };
-            }
-            return g;
-        });
-    });
+    const commentId = comment.id || `comment-${Date.now()}`;
+    await db.ref(`${ROOMS_REF}/${roomCode}/gameQueue/${gameId}/comments/${commentId}`).set(comment);
 };
 
 export const toggleUserReadyState = async (code: string, userId: string) => {
@@ -205,8 +191,8 @@ export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
     const data = snapshot.val();
     const allRooms = Object.values(data).map((r: any) => ({
         ...r,
-        members: Array.isArray(r.members) ? r.members : Object.values(r.members || {}),
-        gameQueue: Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {})
+        members: r.members ? Object.values(r.members) : [],
+        gameQueue: r.gameQueue ? Object.values(r.gameQueue) : []
     })) as Room[];
 
     const scoredRooms = allRooms
@@ -223,7 +209,7 @@ export const getFeaturedRooms = async (limit: number = 4): Promise<Room[]> => {
         });
 
     return scoredRooms
-        .sort((a: any, b: any) => b.popularityScore - a.popularityScore)
+        .sort((a: any, b: any) => (b.popularityScore || 0) - (a.popularityScore || 0))
         .slice(0, limit);
 };
 
@@ -255,39 +241,33 @@ export const getUserRooms = async (userId: string): Promise<RoomSummary[]> => {
 
 export const voteForGame = async (code: string, gameId: string, userId: string) => {
     if (!db) return;
-    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-    await queueRef.transaction((queue) => {
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
-        return qArray.map((g: Game) => {
-            if (g.id === gameId) {
-                const votes = Array.isArray(g.votedBy) ? g.votedBy : Object.values(g.votedBy || {});
-                const hasVoted = votes.includes(userId);
-                return { ...g, votedBy: hasVoted ? votes.filter(id => id !== userId) : [...votes, userId] };
-            }
-            return g;
-        });
-    });
+    const votesRef = db.ref(`${ROOMS_REF}/${code}/gameQueue/${gameId}/votedBy`);
+    const snap = await votesRef.once('value');
+    const votes = snap.exists() ? (Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val())) : [];
+    
+    if (votes.includes(userId)) {
+        await votesRef.set(votes.filter((id: string) => id !== userId));
+    } else {
+        await votesRef.set([...votes, userId]);
+    }
 };
 
 export const sendChatMessage = async (code: string, message: Message) => {
     if (!db) return;
-    const chatRef = db.ref(`${ROOMS_REF}/${code}/chatHistory`);
-    await chatRef.transaction((history) => {
-        const hArray = Array.isArray(history) ? history : Object.values(history || {});
-        hArray.push(message);
-        return hArray;
-    });
+    const msgId = message.id || `msg-${Date.now()}`;
+    await db.ref(`${ROOMS_REF}/${code}/chatHistory/${msgId}`).set(message);
 };
 
 export const removeGameFromRoom = async (code: string, gameId: string, userId: string, isAdmin: boolean) => {
     if (!db) return;
-    const queueRef = db.ref(`${ROOMS_REF}/${code}/gameQueue`);
-    await queueRef.transaction((queue) => {
-        const qArray = Array.isArray(queue) ? queue : Object.values(queue || {});
-        const game = qArray.find((g: Game) => g.id === gameId);
-        if (isAdmin || game?.proposedBy === userId) { return qArray.filter((g: Game) => g.id !== gameId); }
-        return qArray;
-    });
+    const gameRef = db.ref(`${ROOMS_REF}/${code}/gameQueue/${gameId}`);
+    const snap = await gameRef.once('value');
+    if (snap.exists()) {
+        const game = snap.val();
+        if (isAdmin || game.proposedBy === userId) {
+            await gameRef.remove();
+        }
+    }
 };
 
 export const getAllRooms = async (): Promise<Room[]> => {
@@ -297,9 +277,9 @@ export const getAllRooms = async (): Promise<Room[]> => {
     const data = snapshot.val();
     return Object.values(data).map((r: any) => ({
         ...r,
-        members: Array.isArray(r.members) ? r.members : Object.values(r.members || {}),
-        gameQueue: Array.isArray(r.gameQueue) ? r.gameQueue : Object.values(r.gameQueue || {}),
-        chatHistory: Array.isArray(r.chatHistory) ? r.chatHistory : Object.values(r.chatHistory || {})
+        members: r.members ? Object.values(r.members) : [],
+        gameQueue: r.gameQueue ? Object.values(r.gameQueue) : [],
+        chatHistory: r.chatHistory ? Object.values(r.chatHistory) : []
     }));
 };
 

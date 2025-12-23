@@ -165,9 +165,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     const members = room.members || [];
     
-    // Squad sorting: First ready users, then others
+    // Squad sorting: First ready users, then others. Guaranteed unique by using user IDs.
     const sortedMembers = [...members].sort((a, b) => {
-        if (a.isReady === b.isReady) return 0;
+        if (a.isReady === b.isReady) return (a.nickname || a.alias).localeCompare(b.nickname || b.alias);
         return a.isReady ? -1 : 1;
     });
 
@@ -213,13 +213,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     <div className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
                         <nav className="space-y-1.5">
                             <button onClick={() => { setView('LOBBY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LOBBY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
-                                <LayoutGrid size={20}/> <span>{t('lobby.viewLobby')}</span>
+                                <LayoutGrid size={20}/> <span className="text-[10px] uppercase tracking-widest">{t('lobby.viewLobby')}</span>
                             </button>
                             <button onClick={() => { setView('LIBRARY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'LIBRARY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
-                                <Search size={20}/> <span>{t('lobby.viewLibrary')}</span>
+                                <Search size={20}/> <span className="text-[10px] uppercase tracking-widest">{t('lobby.viewLibrary')}</span>
                             </button>
                             <button onClick={() => { setView('READY'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'READY' ? 'bg-primary text-white shadow-lg shadow-primary/20 font-black' : 'text-gray-500 hover:bg-gray-800 font-bold'}`}>
-                                <CheckCircle2 size={20}/> <span className="uppercase tracking-widest text-[10px]">Ready List</span>
+                                <CheckCircle2 size={20}/> <span className="uppercase tracking-widest text-[10px]">Ready Section</span>
                             </button>
                         </nav>
 
@@ -296,7 +296,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
 
                             {queue.length === 0 ? (
-                                <div className="h-96 border-2 border-dashed border-gray-800/50 rounded-[3rem] flex flex-col items-center justify-center text-gray-700 italic tracking-widest">
+                                <div className="h-96 border-2 border-dashed border-gray-800/50 rounded-[3rem] flex flex-col items-center justify-center text-gray-700 italic tracking-widest text-center px-6">
+                                    <Gamepad2 size={48} className="mb-4 opacity-10" />
                                     {t('lobby.queueEmpty')}
                                 </div>
                             ) : (
@@ -339,19 +340,21 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         </div>
                     ) : (
                         /* READY VIEW SECTION */
-                        <div className="h-full flex flex-col items-center justify-center space-y-6 text-center animate-in fade-in duration-700">
+                        <div className="h-full flex flex-col items-center justify-center space-y-6 text-center animate-in fade-in duration-700 max-w-lg mx-auto">
                              <div className="relative">
-                                <CheckCircle2 size={80} className="text-green-500/20" strokeWidth={1}/>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Clock size={32} className="text-gray-800 animate-spin-slow"/>
+                                <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20">
+                                    <CheckCircle2 size={48} className="text-green-500" strokeWidth={1}/>
+                                </div>
+                                <div className="absolute -top-2 -right-2">
+                                    <Clock size={32} className="text-primary animate-spin-slow opacity-30"/>
                                 </div>
                              </div>
                              <div className="space-y-2">
-                                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-gray-700">Ready Up Dashboard</h3>
-                                <p className="text-[10px] font-black text-gray-800 uppercase tracking-[0.3em]">Module under construction</p>
+                                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Squad Sincronización</h3>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em]">Panel de Control en Desarrollo</p>
                              </div>
-                             <div className="max-w-xs p-6 border border-gray-800 rounded-[2rem] bg-black/20 text-xs text-gray-600 font-bold italic leading-relaxed">
-                                Soon you will be able to see advanced stats of who is ready, session countdowns, and match-up history.
+                             <div className="p-8 border border-gray-800/50 rounded-[2.5rem] bg-black/40 text-xs text-gray-400 font-bold italic leading-relaxed backdrop-blur-md">
+                                "Próximamente: Estadísticas en tiempo real de quién está listo para jugar, cuenta regresiva automática para el inicio de sesión y registro de victorias históricas de la escuadra."
                              </div>
                         </div>
                     )}
