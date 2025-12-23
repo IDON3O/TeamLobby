@@ -75,6 +75,15 @@ export interface Message {
   isSystem?: boolean;
 }
 
+export interface ReadySession {
+  type: 'roulette' | 'voting';
+  status: 'idle' | 'collecting' | 'results';
+  suggestions: Record<string, { gameId: string, gameTitle: string, userName: string }>;
+  votes: Record<string, string>; // voterId -> gameId
+  winner?: string | string[]; // gameId or array of IDs if tie
+  active: boolean;
+}
+
 export interface Room {
   code: string;
   name?: string;
@@ -85,6 +94,7 @@ export interface Room {
   gameQueue: Game[];
   chatHistory: Message[];
   createdAt: number;
+  readySession?: ReadySession;
 }
 
 export interface RoomSummary {
