@@ -59,8 +59,6 @@ export const createRoom = async (host: User, roomName: string, password?: string
     };
 
     await roomRef.set(newRoom);
-    
-    // Setup disconnect for host
     db.ref(`${ROOMS_REF}/${code}/members/${host.id}/isReady`).onDisconnect().set(false);
 
     await updateVisitedRooms(host.id, {
@@ -74,9 +72,16 @@ export const createRoom = async (host: User, roomName: string, password?: string
     return code;
 };
 
+// Added missing deleteRoom export
 export const deleteRoom = async (code: string) => {
     if (!db) return;
     await db.ref(`${ROOMS_REF}/${code}`).remove();
+};
+
+export const leaveRoomCleanly = async (code: string, userId: string) => {
+    if (!db) return;
+    // Ponemos al usuario como no listo al salir manualmente
+    await db.ref(`${ROOMS_REF}/${code}/members/${userId}`).update({ isReady: false });
 };
 
 const updateVisitedRooms = async (userId: string, summary: RoomSummary) => {
@@ -101,14 +106,11 @@ export const joinRoom = async (code: string, user: User, passwordAttempt?: strin
     const userDataToStore = {
         ...user,
         nickname: user.nickname || user.alias,
-        isReady: false // Forzamos false al entrar para limpiar estados fantasmas
+        isReady: false 
     };
 
-    // Usamos update en lugar de set para no borrar otros miembros y asegurar que la clave sea el ID del usuario
     const memberRef = db.ref(`${ROOMS_REF}/${code}/members/${user.id}`);
-    await memberRef.set(userDataToStore);
-    
-    // CRITICAL: Deactivate ready state on disconnect
+    await memberRef.update(userDataToStore); // Usamos update para no crear nuevas ramas
     memberRef.child('isReady').onDisconnect().set(false);
 
     await updateVisitedRooms(user.id, {
@@ -128,12 +130,16 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
     const listener = roomRef.on('value', (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            // Convertimos objetos de Firebase a arrays para el frontend
+            // Limpieza estricta de duplicados basada en keys de objeto
+            const membersMap = data.members || {};
+            const gamesMap = data.gameQueue || {};
+            const chatMap = data.chatHistory || {};
+
             callback({
                 ...data,
-                members: data.members ? Object.values(data.members) : [],
-                gameQueue: data.gameQueue ? Object.values(data.gameQueue) : [],
-                chatHistory: data.chatHistory ? Object.values(data.chatHistory) : []
+                members: Object.entries(membersMap).map(([id, val]: [string, any]) => ({ ...val, id })),
+                gameQueue: Object.entries(gamesMap).map(([id, val]: [string, any]) => ({ ...val, id })),
+                chatHistory: Object.entries(chatMap).map(([id, val]: [string, any]) => ({ ...val, id }))
             });
         } else {
             // @ts-ignore

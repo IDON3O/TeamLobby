@@ -10,7 +10,7 @@ import {
 import { Room, User, Game, GameGenre, Platform, ViewState } from '../types';
 import { 
   subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
-  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom 
+  toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly
 } from '../services/roomService';
 import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
@@ -61,11 +61,19 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                   else setSelectedGame(null);
                 }
             });
-            return () => unsub();
+            // Cleanup: Al salir de la sala reseteamos el estado ready para evitar fantasmas
+            return () => {
+                unsub();
+                leaveRoomCleanly(code, currentUser.id);
+            };
         }
-    }, [code, navigate, selectedGame?.id]);
+    }, [code, navigate, selectedGame?.id, currentUser.id]);
 
-    const handleLeave = () => navigate('/');
+    const handleLeave = () => {
+        if (code) leaveRoomCleanly(code, currentUser.id);
+        navigate('/');
+    };
+    
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
     
     const handleRemove = (id: string) => {
@@ -163,9 +171,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
     if (!room) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary" size={48}/></div>;
 
-    const members = room.members || [];
+    // ELIMINACIÓN DE DUPLICADOS: Filtramos por ID único antes de cualquier operación
+    const membersRaw = room.members || [];
+    const membersMap = new Map<string, User>();
+    membersRaw.forEach(m => { if(m.id) membersMap.set(m.id, m); });
+    const members = Array.from(membersMap.values());
     
-    // Squad sorting: First ready users, then others. Guaranteed unique by using user IDs.
+    // Squad sorting: First ready users, then others.
     const sortedMembers = [...members].sort((a, b) => {
         if (a.isReady === b.isReady) return (a.nickname || a.alias).localeCompare(b.nickname || b.alias);
         return a.isReady ? -1 : 1;
@@ -203,7 +215,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
             <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-surface border-r border-gray-800 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex flex-col h-full">
                     <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
-                        <Link to="/" className="flex items-center gap-2 group">
+                        <Link to="/" onClick={() => code && leaveRoomCleanly(code, currentUser.id)} className="flex items-center gap-2 group">
                             <Gamepad2 size={24} className="text-primary group-hover:animate-bounce transition-all"/>
                             <span className="font-black text-xl tracking-tighter uppercase italic text-white group-hover:text-primary transition-colors">TeamLobby</span>
                         </Link>
@@ -223,7 +235,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {sortedRanking.length > 0 && (
+                        {podium.length > 0 && (
                             <div className="relative pt-8 pb-4 bg-black/20 rounded-2xl border border-gray-800/50">
                                 <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1 opacity-50">
                                     <Trophy size={10} className="text-yellow-500"/>
@@ -231,7 +243,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                                 <div className="flex items-end justify-center gap-2 px-2">
                                     {podium.map((m) => {
-                                        const isFirst = m.id === sortedRanking[0].id;
+                                        const isFirst = sortedRanking[0] && m.id === sortedRanking[0].id;
                                         return (
                                             <div key={m.id} className="flex flex-col items-center flex-1 max-w-[80px]">
                                                 <img src={m.avatarUrl} className={`rounded-full border-2 mb-2 ${isFirst ? 'w-14 h-14 border-yellow-500' : 'w-10 h-10 border-gray-700'}`}/>
