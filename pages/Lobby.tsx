@@ -191,6 +191,14 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const genres = Object.values(GameGenre);
     const visibleGenres = showAllGenres ? genres : genres.slice(0, 5);
 
+    // Resolve proposer name from ID
+    const getProposerName = (id?: string) => {
+        if (!id) return 'Anónimo';
+        if (id === 'AI') return 'Gemini AI';
+        const member = members.find(m => m.id === id);
+        return member?.nickname || member?.alias || id;
+    };
+
     return (
         <div className="h-screen bg-background text-gray-100 flex overflow-hidden font-sans relative">
             {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
@@ -406,94 +414,98 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* MODAL DETALLES REDISEÑADO */}
+            {/* MODAL DETALLES REDISEÑADO (AHORA CON SCROLL COMPLETO) */}
             {selectedGame && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in">
                     <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95">
                         <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg"><X size={24}/></button>
                         
-                        <div className="relative w-full h-[200px] md:h-[280px] shrink-0 bg-gray-900">
-                            <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
-                            <div className="relative w-full h-full flex items-center justify-center">
-                                <img src={selectedGame.imageUrl} className="h-full w-auto object-contain max-w-full drop-shadow-2xl py-6" alt={selectedGame.title}/>
-                            </div>
-                            <div className="absolute bottom-6 left-8">
-                                <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-lg">{selectedGame.title}</h3>
-                                <div className="flex items-center gap-3 mt-3">
-                                    <span className="text-primary font-black uppercase text-[9px] bg-primary/10 px-3 py-1 rounded-lg border border-primary/20">{t(`genre.${selectedGame.genre}` as TranslationKey)}</span>
-                                    <div className="flex items-center gap-2 bg-black/60 px-2 py-1 rounded-lg border border-gray-800 shadow-inner">
-                                        {selectedGame.platforms.map(p => <PlatformIcon key={p} p={p} />)}
+                        {/* Contenedor Principal con Scroll */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {/* Imagen de Cabecera (Sube con el scroll) */}
+                            <div className="relative w-full h-[220px] md:h-[320px] bg-gray-900">
+                                <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <img src={selectedGame.imageUrl} className="h-full w-auto object-contain max-w-full drop-shadow-2xl py-6" alt={selectedGame.title}/>
+                                </div>
+                                <div className="absolute bottom-6 left-8">
+                                    <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-lg">{selectedGame.title}</h3>
+                                    <div className="flex items-center gap-3 mt-3">
+                                        <span className="text-primary font-black uppercase text-[9px] bg-primary/10 px-3 py-1 rounded-lg border border-primary/20">{t(`genre.${selectedGame.genre}` as TranslationKey)}</span>
+                                        <div className="flex items-center gap-2 bg-black/60 px-2 py-1 rounded-lg border border-gray-800 shadow-inner">
+                                            {selectedGame.platforms.map(p => <PlatformIcon key={p} p={p} />)}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col lg:flex-row">
-                            <div className="flex-1 p-6 md:p-8 space-y-6">
-                                <div className="space-y-3">
-                                    <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Resumen</h4>
-                                    <p className="text-gray-300 text-sm italic leading-relaxed bg-black/30 p-5 rounded-2xl border border-gray-800/50">"{selectedGame.description || 'Sin descripción disponible.'}"</p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><MessageSquare size={12}/> {t('lobby.comments')}</h4>
+                            <div className="flex flex-col lg:flex-row">
+                                <div className="flex-1 p-6 md:p-8 space-y-8">
                                     <div className="space-y-3">
-                                        {Object.values(selectedGame.comments || {}).length === 0 ? (
-                                            <div className="p-6 border border-dashed border-gray-800 rounded-2xl text-center">
-                                                <p className="text-[9px] text-gray-700 italic font-black uppercase tracking-widest">{t('lobby.noComments')}</p>
-                                            </div>
-                                        ) : (
-                                            Object.values(selectedGame.comments || {}).map(c => (
-                                                <div key={c.id} className="bg-gray-900/50 p-4 rounded-xl border border-gray-800/50 group/comment">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-[9px] font-black text-primary uppercase italic">{c.userName}</span>
-                                                        <span className="text-[8px] text-gray-700 font-bold">{new Date(c.timestamp).toLocaleDateString()}</span>
-                                                    </div>
-                                                    <p className="text-xs text-gray-300 leading-relaxed italic">"{c.text}"</p>
+                                        <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><Info size={12}/> Resumen</h4>
+                                        <p className="text-gray-300 text-sm italic leading-relaxed bg-black/30 p-6 rounded-2xl border border-gray-800/50">"{selectedGame.description || 'Sin descripción disponible.'}"</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><MessageSquare size={12}/> {t('lobby.comments')}</h4>
+                                        <div className="space-y-3">
+                                            {Object.values(selectedGame.comments || {}).length === 0 ? (
+                                                <div className="p-8 border border-dashed border-gray-800 rounded-2xl text-center">
+                                                    <p className="text-[9px] text-gray-700 italic font-black uppercase tracking-widest">{t('lobby.noComments')}</p>
                                                 </div>
-                                            ))
+                                            ) : (
+                                                Object.values(selectedGame.comments || {}).map(c => (
+                                                    <div key={c.id} className="bg-gray-900/50 p-4 rounded-xl border border-gray-800/50 group/comment">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-[9px] font-black text-primary uppercase italic">{c.userName}</span>
+                                                            <span className="text-[8px] text-gray-700 font-bold">{new Date(c.timestamp).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-300 leading-relaxed italic">"{c.text}"</p>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        {!currentUser.isGuest && (
+                                            <div className="flex gap-2 pt-2">
+                                                <input value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 bg-black/40 border border-gray-800 rounded-xl px-4 py-3 text-xs outline-none focus:border-primary font-bold placeholder:text-gray-700" placeholder={t('lobby.addComment')}/>
+                                                <button onClick={handleAddComment} className="p-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-violet-600 transition-all"><Send size={18}/></button>
+                                            </div>
                                         )}
                                     </div>
-                                    {!currentUser.isGuest && (
-                                        <div className="flex gap-2 pt-2">
-                                            <input value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 bg-black/40 border border-gray-800 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary font-bold placeholder:text-gray-700" placeholder={t('lobby.addComment')}/>
-                                            <button onClick={handleAddComment} className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-violet-600 transition-all"><Send size={16}/></button>
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
 
-                            <div className="w-full lg:w-64 p-6 md:p-8 lg:border-l border-gray-800 space-y-4 bg-gray-900/10 shrink-0">
-                                <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Info</h4>
-                                <div className="p-4 bg-black/40 border border-gray-800 rounded-2xl space-y-2">
-                                    <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Propuesto por</p>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-[9px] text-primary italic">#</div>
-                                        <span className="text-[10px] font-black text-white italic truncate">{selectedGame.proposedBy === 'AI' ? 'Gemini AI' : (selectedGame.proposedBy || 'Anónimo')}</span>
+                                <div className="w-full lg:w-52 p-6 md:p-8 lg:border-l border-gray-800 space-y-6 bg-gray-900/10 shrink-0">
+                                    <h4 className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Info Técnica</h4>
+                                    <div className="p-4 bg-black/40 border border-gray-800 rounded-2xl space-y-3">
+                                        <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Postulado por</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-[10px] text-primary italic">#</div>
+                                            <span className="text-[11px] font-black text-white italic truncate" title={getProposerName(selectedGame.proposedBy)}>
+                                                {getProposerName(selectedGame.proposedBy)}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="p-4 bg-black/40 border border-gray-800 rounded-2xl space-y-2">
-                                    <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Plataformas</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {selectedGame.platforms.map(p => (
-                                            <div key={p} className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-lg text-[9px] font-black text-gray-400">
-                                                <PlatformIcon p={p}/> {p}
-                                            </div>
-                                        ))}
+                                    <div className="p-4 bg-black/40 border border-gray-800 rounded-2xl space-y-3">
+                                        <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Plataformas</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedGame.platforms.map(p => (
+                                                <div key={p} className="flex items-center gap-1.5 bg-gray-800/50 px-2 py-1 rounded-lg text-[9px] font-black text-gray-400">
+                                                    <PlatformIcon p={p}/> {p}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* PIE DE PÁGINA REDISEÑADO CON ACCIONES AGRUPADAS */}
+                        {/* PIE DE PÁGINA (STICKY FOOTER) */}
                         <div className="p-6 md:p-8 bg-gray-900 border-t border-gray-800 flex flex-wrap items-center gap-4 shrink-0">
-                            {/* Botón de Voto Principal */}
                             <button onClick={() => handleVote(selectedGame.id)} className={`flex-1 min-w-[120px] py-4 rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white shadow-primary/30' : 'bg-white text-black hover:bg-gray-200 shadow-xl'}`}>
                                 <ThumbsUp size={18} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
                                 {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTADO' : 'VOTAR'}
                             </button>
 
-                            {/* Acciones de Propietario/Admin */}
                             {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
                                 <div className="flex gap-2">
                                     <button onClick={() => openEditModal(selectedGame)} className="p-4 bg-surface border border-gray-800 text-gray-400 hover:text-white rounded-2xl transition-all hover:bg-gray-800 shadow-xl" title="Editar">
@@ -505,7 +517,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                             )}
 
-                            {/* Enlace Externo */}
                             {selectedGame.link && (
                                 <a href={selectedGame.link} target="_blank" rel="noreferrer" className="p-4 bg-primary/10 border border-primary/30 text-primary hover:bg-primary hover:text-white rounded-2xl transition-all shadow-xl" title="Ver en tienda">
                                     <ExternalLink size={18}/>
@@ -516,7 +527,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* MODAL: AÑADIR/EDITAR JUEGO OPTIMIZADO */}
+            {/* MODAL: AÑADIR/EDITAR JUEGO (MÁRGENES OPTIMIZADOS) */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in-95">
@@ -525,15 +536,13 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <button onClick={closeModal} className="p-2.5 hover:bg-gray-800 rounded-xl text-gray-500 hover:text-white transition-all"><X size={20}/></button>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
-                            {/* Título */}
-                            <div className="space-y-1.5">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                            <div className="space-y-1">
                                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Título del Juego</label>
                                 <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-sm font-black focus:border-primary outline-none transition-all placeholder:text-gray-700" placeholder="e.g. Halo Infinite..."/>
                             </div>
 
-                            {/* Selector 5+1 de Géneros */}
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Género</label>
                                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                                     {visibleGenres.map(g => (
@@ -555,9 +564,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                             </div>
 
-                            {/* Selector de Plataformas */}
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Plataformas Disponibles</label>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Plataformas</label>
                                 <div className="flex flex-wrap gap-2">
                                     {Object.values(Platform).map(p => (
                                         <button 
@@ -571,20 +579,20 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">URL de Portada</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Portada (URL)</label>
                                     <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:border-primary transition-all placeholder:text-gray-800" placeholder="https://...jpg"/>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Enlace Externo</label>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Enlace</label>
                                     <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:border-primary transition-all placeholder:text-gray-800" placeholder="e.g. Steam Store..."/>
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Breve Descripción</label>
-                                <textarea value={newGameDesc} onChange={e => setNewGameDesc(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-[10px] h-20 font-bold outline-none focus:border-primary transition-all resize-none placeholder:text-gray-800" placeholder="Cuéntanos por qué deberíamos jugar esto..."/>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest px-1">Descripción</label>
+                                <textarea value={newGameDesc} onChange={e => setNewGameDesc(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-[10px] h-20 font-bold outline-none focus:border-primary transition-all resize-none placeholder:text-gray-800" placeholder="¿Por qué jugar este título?..."/>
                             </div>
                         </div>
 
