@@ -1,4 +1,5 @@
 
+
 export enum Platform {
   PC = 'PC',
   PS5 = 'PS5',
@@ -47,7 +48,9 @@ export interface Game {
   link?: string;
   proposedBy?: string;
   status: 'pending' | 'approved';
-  comments?: Comment[];
+  // Fix: Firebase Realtime Database stores nested collections as objects (Maps), 
+  // so we use Record<string, Comment> instead of Comment[] to match the incoming data structure and prevent spread errors.
+  comments?: Record<string, Comment>;
 }
 
 export interface User {

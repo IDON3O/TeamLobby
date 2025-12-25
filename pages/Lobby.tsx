@@ -5,7 +5,7 @@ import {
   Gamepad2, Menu, Plus, Search, X, 
   Loader2, Lock, MessageCircle, LayoutGrid, Trophy, Trash2,
   ExternalLink, Edit3, Send, ThumbsUp, Monitor, Tv, Box, CheckCircle2, Info, Copy,
-  Clock, Dices, Vote, Sparkles, RefreshCcw, UserPlus, PlayCircle, MessageSquare
+  Clock, Dices, Vote, Sparkles, RefreshCcw, UserPlus, PlayCircle, MessageSquare, ChevronDown
 } from 'lucide-react';
 import { Room, User, Game, GameGenre, Platform, ViewState, Comment } from '../types';
 import { 
@@ -13,7 +13,6 @@ import {
   toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly, cleanupRoomMembers,
   startReadyActivity, submitReadySuggestion, submitReadyVote, resolveReadyActivity, resetReadyActivity
 } from '../services/roomService';
-import { uploadGameImage } from '../services/firebaseService';
 import { MOCK_GAMES } from '../constants';
 import Chat from '../components/Chat';
 import GameCard from '../components/GameCard';
@@ -113,10 +112,16 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         if (!newGameTitle || !room) return;
         setIsUploading(true);
         try {
-            const gameData: Partial<Game> = { title: newGameTitle, description: newGameDesc || 'User recommended game.', imageUrl: newGameImageUrl, genre: newGameGenre, link: newGameLink };
+            const gameData: Partial<Game> = { 
+                title: newGameTitle, 
+                description: newGameDesc || 'User recommended game.', 
+                imageUrl: newGameImageUrl || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=400&auto=format&fit=crop', 
+                genre: newGameGenre, 
+                link: newGameLink 
+            };
             if (editingGameId) await updateGameInRoom(room.code, editingGameId, gameData);
             else {
-                const newGame: Game = { ...gameData as Game, id: `custom-${Date.now()}`, platforms: [Platform.PC], votedBy: [currentUser.id], tags: ['Custom'], status: 'approved', proposedBy: currentUser.id, comments: [] };
+                const newGame: Game = { ...gameData as Game, id: `custom-${Date.now()}`, platforms: [Platform.PC], votedBy: [currentUser.id], tags: ['Custom'], status: 'approved', proposedBy: currentUser.id, comments: {} };
                 await addGameToRoom(room.code, newGame, currentUser);
             }
             closeModal();
@@ -128,6 +133,10 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         const comment: Comment = { id: `comment-${Date.now()}`, userId: currentUser.id, userName: currentUser.nickname || currentUser.alias, text: newComment, timestamp: Date.now() };
         await addCommentToGame(room.code, selectedGame.id, comment);
         setNewComment('');
+        // Update local selected game for instant UI feedback
+        // Fix: Use Record spread to update local comments state, matching the Record<string, Comment> type and avoiding array spread errors.
+        const updatedComments = { ...(selectedGame.comments || {}), [comment.id]: comment };
+        setSelectedGame({ ...selectedGame, comments: updatedComments });
     };
 
     const handleDeleteGame = async (gameId: string) => {
@@ -211,12 +220,12 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <h2 className="text-lg font-black text-white">{room.name}</h2>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-mono font-black text-primary/80">#{room.code}</span>
-                                <button onClick={handleCopyCode} className="text-gray-600 hover:text-white transition-colors"><Copy size={12}/></button>
+                                <button onClick={handleCopyCode} className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-500 hover:text-white transition-all"><Copy size={12}/></button>
                             </div>
                         </div>
                     </div>
                     {view === 'LOBBY' && !currentUser.isGuest && (
-                        <button onClick={() => setIsGameModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-primary/20">
+                        <button onClick={() => setIsGameModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
                             <Plus size={16}/> <span className="hidden sm:inline">Add Game</span>
                         </button>
                     )}
@@ -227,7 +236,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         <div className="space-y-6 max-w-7xl mx-auto w-full">
                             <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
                                 {['ALL', 'VOTED', 'RECENT'].map(f => (
-                                    <button key={f} onClick={() => setActiveFilter(f as any)} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === f ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>{f}</button>
+                                    <button key={f} onClick={() => setActiveFilter(f as any)} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === f ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>{f}</button>
                                 ))}
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-32">
@@ -235,9 +244,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                     <GameCard key={g.id} game={g} currentUserId={currentUser.id} onVote={handleVote} onOpenDetails={setSelectedGame} isVotingEnabled={true} />
                                 ))}
                                 {room.gameQueue.length === 0 && (
-                                    <div className="col-span-full py-20 flex flex-col items-center justify-center text-gray-700 bg-surface/20 border-2 border-dashed border-gray-800 rounded-[2rem]">
-                                        <Plus size={48} className="mb-4 opacity-10"/>
-                                        <p className="font-black text-xs uppercase tracking-widest">Queue is empty</p>
+                                    <div className="col-span-full py-24 flex flex-col items-center justify-center text-gray-700 bg-surface/10 border-2 border-dashed border-gray-800 rounded-[3rem]">
+                                        <div className="p-6 bg-gray-900/50 rounded-full mb-4 border border-gray-800">
+                                            <Gamepad2 size={48} className="opacity-20"/>
+                                        </div>
+                                        <p className="font-black text-xs uppercase tracking-[0.3em]">Queue is empty. Add from Library!</p>
                                     </div>
                                 )}
                             </div>
@@ -246,7 +257,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         <div className="max-w-7xl mx-auto space-y-8 w-full">
                              <div className="relative group">
                                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" size={24}/>
-                                <input type="text" placeholder="Search global library..." className="w-full bg-surface border border-gray-800 rounded-[2rem] py-5 pl-14 pr-6 outline-none focus:border-primary text-sm font-black tracking-widest"/>
+                                <input type="text" placeholder="Search global library..." className="w-full bg-surface border border-gray-800 rounded-[2.5rem] py-5 pl-14 pr-6 outline-none focus:border-primary text-sm font-black tracking-widest shadow-xl"/>
                              </div>
                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                 {MOCK_GAMES.map(g => (
@@ -258,7 +269,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                              </div>
                         </div>
                     ) : (
-                        /* READY VIEW RESTAURADO */
+                        /* READY VIEW */
                         <div className="h-full flex flex-col items-center justify-center space-y-8 max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-500">
                              {!room.readySession || room.readySession.status === 'idle' ? (
                                 <div className="text-center space-y-10">
@@ -269,7 +280,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">READY COMMAND</h3>
                                         <p className="text-gray-500 font-bold max-w-md mx-auto text-sm leading-relaxed italic">Coordina el inicio de la sesión.</p>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-xl">
                                         <button onClick={() => handleStartActivity('roulette')} className="group p-8 bg-surface border-2 border-gray-800 rounded-[2.5rem] hover:border-primary/50 transition-all text-left space-y-4 shadow-xl">
                                             <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform"><Dices size={28}/></div>
                                             <div>
@@ -288,7 +299,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 </div>
                              ) : (
                                 <div className="w-full bg-surface border border-gray-800 rounded-[3rem] p-8 md:p-12 space-y-10 shadow-2xl relative overflow-hidden">
-                                    {/* Contenido Ready (Sugerencias, Votación, Resultados) ya estaba optimizado, se mantiene estable */}
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-4">
                                             <div className="p-3 bg-gray-900 rounded-2xl border border-gray-800">
@@ -303,44 +313,50 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                         <div className="space-y-10">
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                                 <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase">Propuestas</h4>
-                                                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Propuestas</h4>
+                                                    <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                                                         {room.gameQueue.map(g => {
                                                             const isSuggested = suggestions[currentUser.id]?.gameId === g.id;
                                                             return (
-                                                                <button key={g.id} onClick={() => handleReadySuggestion(g)} className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left text-xs ${isSuggested ? 'bg-primary/20 border-primary text-white' : 'bg-black/20 border-gray-800 text-gray-500'}`}>
-                                                                    {g.title} {isSuggested && <CheckCircle2 size={12}/>}
+                                                                <button key={g.id} onClick={() => handleReadySuggestion(g)} className={`flex items-center justify-between p-4 rounded-xl border transition-all text-left text-xs font-black ${isSuggested ? 'bg-primary/20 border-primary text-white' : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-700'}`}>
+                                                                    {g.title} {isSuggested && <CheckCircle2 size={16} className="text-primary"/>}
                                                                 </button>
                                                             );
                                                         })}
                                                     </div>
                                                 </div>
                                                 <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase">Participando ({Object.keys(suggestions).length})</h4>
+                                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">En Escena ({Object.keys(suggestions).length})</h4>
                                                     <div className="space-y-2">
                                                         {Object.values(suggestions).map((s: any) => (
-                                                            <div key={s.userName + s.gameId} className="p-3 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between text-[10px] font-black">
-                                                                <span>{s.userName}</span>
-                                                                <span className="text-gray-600">{s.gameTitle}</span>
+                                                            <div key={s.userName + s.gameId} className="p-4 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between text-[11px] font-black italic">
+                                                                <span className="text-primary uppercase">{s.userName}</span>
+                                                                <span className="text-gray-400">{s.gameTitle}</span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button onClick={handleAdvancePhase} disabled={isSpinning || Object.keys(suggestions).length < 2} className="w-full py-5 bg-white text-black font-black uppercase rounded-2xl flex items-center justify-center gap-3">
-                                                {isSpinning ? <Loader2 className="animate-spin" /> : <PlayCircle size={18}/>}
-                                                CONTINUAR
+                                            <button onClick={handleAdvancePhase} disabled={isSpinning || Object.keys(suggestions).length < 2} className="w-full py-6 bg-white text-black font-black uppercase rounded-[2rem] flex items-center justify-center gap-3 shadow-xl hover:bg-gray-200 transition-all disabled:opacity-50">
+                                                {isSpinning ? <Loader2 className="animate-spin" /> : <PlayCircle size={20}/>}
+                                                PROCESAR ACTIVIDAD
                                             </button>
                                         </div>
                                     )}
 
                                     {room.readySession.status === 'results' && (
-                                        <div className="text-center py-10 space-y-6">
-                                            <Trophy size={64} className="text-yellow-500 mx-auto"/>
-                                            <h4 className="text-3xl font-black italic uppercase text-white">
-                                                {Array.isArray(room.readySession.winner) ? "¡EMPATE!" : (room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || "Elegido")}
-                                            </h4>
-                                            <button onClick={() => resetReadyActivity(room.code)} className="px-8 py-3 bg-gray-800 rounded-xl text-[10px] font-black uppercase">Reiniciar</button>
+                                        <div className="text-center py-12 space-y-8">
+                                            <div className="relative inline-block">
+                                                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                                                <Trophy size={80} className="text-yellow-500 mx-auto drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] relative z-10"/>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Resultado Final</p>
+                                                <h4 className="text-4xl font-black italic uppercase text-white drop-shadow-xl tracking-tighter">
+                                                    {Array.isArray(room.readySession.winner) ? "¡EMPATE TÉCNICO!" : (room.gameQueue.find(g => g.id === room.readySession?.winner)?.title || "ELEGIDO POR EL DESTINO")}
+                                                </h4>
+                                            </div>
+                                            <button onClick={() => resetReadyActivity(room.code)} className="px-12 py-4 bg-gray-800 border border-gray-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">REINICIAR</button>
                                         </div>
                                     )}
                                 </div>
@@ -351,11 +367,11 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                 <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-4">
                     {isChatOpen && (
-                        <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/95 backdrop-blur-2xl border border-gray-800 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[500px] md:h-[600px]">
+                        <div className="w-[calc(100vw-3rem)] sm:w-[400px] bg-surface/95 backdrop-blur-2xl border border-gray-800 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[500px] md:h-[600px] animate-in slide-in-from-bottom-10">
                             <Chat messages={room.chatHistory} currentUser={currentUser} onSendMessage={handleSendMsg} onReceiveMessage={() => {}} />
                         </div>
                     )}
-                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all ${isChatOpen ? 'bg-gray-900 text-white' : 'bg-primary text-white'}`}>
+                    <button onClick={() => setIsChatOpen(!isChatOpen)} className={`w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 border-4 border-background ${isChatOpen ? 'bg-gray-900 text-white' : 'bg-primary text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]'}`}>
                         {isChatOpen ? <X size={28}/> : <MessageCircle size={28}/>}
                     </button>
                 </div>
@@ -367,16 +383,16 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                     <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95">
                         <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg"><X size={24}/></button>
                         
-                        <div className="relative w-full h-[240px] md:h-[300px] shrink-0 bg-gray-900">
+                        <div className="relative w-full h-[240px] md:h-[320px] shrink-0 bg-gray-900">
                             <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
                             <div className="relative w-full h-full flex items-center justify-center">
                                 <img src={selectedGame.imageUrl} className="h-full w-auto object-contain max-w-full drop-shadow-2xl py-8" alt={selectedGame.title}/>
                             </div>
                             <div className="absolute bottom-6 left-8">
-                                <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-none">{selectedGame.title}</h3>
+                                <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-lg">{selectedGame.title}</h3>
                                 <div className="flex items-center gap-3 mt-4">
                                     <span className="text-primary font-black uppercase text-[10px] bg-primary/10 px-4 py-1.5 rounded-lg border border-primary/20">{t(`genre.${selectedGame.genre}` as TranslationKey)}</span>
-                                    <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-gray-800">
+                                    <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg border border-gray-800 shadow-inner">
                                         {selectedGame.platforms.map(p => <PlatformIcon key={p} p={p} />)}
                                     </div>
                                 </div>
@@ -387,78 +403,122 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             <div className="flex-1 p-8 space-y-8">
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><Info size={14}/> Summary</h4>
-                                    <p className="text-gray-300 text-sm italic leading-relaxed bg-black/20 p-6 rounded-2xl border border-gray-800/50">"{selectedGame.description}"</p>
+                                    <p className="text-gray-300 text-sm italic leading-relaxed bg-black/30 p-6 rounded-2xl border border-gray-800/50">"{selectedGame.description || 'No description provided.'}"</p>
                                 </div>
 
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2"><MessageSquare size={14}/> {t('lobby.comments')}</h4>
                                     <div className="space-y-3">
                                         {Object.values(selectedGame.comments || {}).length === 0 ? (
-                                            <p className="text-[10px] text-gray-700 italic">{t('lobby.noComments')}</p>
+                                            <div className="p-8 border border-dashed border-gray-800 rounded-2xl text-center">
+                                                <p className="text-[10px] text-gray-700 italic font-black uppercase tracking-widest">{t('lobby.noComments')}</p>
+                                            </div>
                                         ) : (
                                             Object.values(selectedGame.comments || {}).map(c => (
-                                                <div key={c.id} className="bg-black/20 p-4 rounded-xl border border-gray-800/50">
-                                                    <div className="flex justify-between items-center mb-1">
-                                                        <span className="text-[9px] font-black text-primary uppercase">{c.userName}</span>
-                                                        <span className="text-[8px] text-gray-700">{new Date(c.timestamp).toLocaleDateString()}</span>
+                                                <div key={c.id} className="bg-gray-900/50 p-4 rounded-xl border border-gray-800/50 group/comment">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-[10px] font-black text-primary uppercase italic">{c.userName}</span>
+                                                        <span className="text-[9px] text-gray-700 font-bold">{new Date(c.timestamp).toLocaleDateString()}</span>
                                                     </div>
-                                                    <p className="text-xs text-gray-400">{c.text}</p>
+                                                    <p className="text-xs text-gray-300 leading-relaxed italic">"{c.text}"</p>
                                                 </div>
                                             ))
                                         )}
                                     </div>
                                     {!currentUser.isGuest && (
-                                        <div className="flex gap-2">
-                                            <input value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 bg-black/40 border border-gray-800 rounded-xl px-4 py-2 text-xs outline-none focus:border-primary" placeholder={t('lobby.addComment')}/>
-                                            <button onClick={handleAddComment} className="p-2.5 bg-primary text-white rounded-xl"><Send size={16}/></button>
+                                        <div className="flex gap-2 pt-2">
+                                            <input value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 bg-black/40 border border-gray-800 rounded-xl px-4 py-3 text-xs outline-none focus:border-primary font-bold placeholder:text-gray-700" placeholder={t('lobby.addComment')}/>
+                                            <button onClick={handleAddComment} className="p-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-violet-600 transition-all"><Send size={18}/></button>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="w-full lg:w-72 p-8 lg:border-l border-gray-800 space-y-6">
+                            <div className="w-full lg:w-72 p-8 lg:border-l border-gray-800 space-y-6 bg-gray-900/10">
+                                <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Management</h4>
                                 {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
                                     <div className="space-y-3">
-                                        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Controls</h4>
-                                        <button onClick={() => { setEditingGameId(selectedGame.id); setNewGameTitle(selectedGame.title); setNewGameDesc(selectedGame.description); setNewGameImageUrl(selectedGame.imageUrl); setNewGameGenre(selectedGame.genre); setNewGameLink(selectedGame.link || ''); setIsGameModalOpen(true); }} className="w-full flex items-center gap-3 px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs text-gray-400 hover:text-white transition-all"><Edit3 size={16}/> Edit Entry</button>
-                                        <button onClick={() => handleDeleteGame(selectedGame.id)} className="w-full flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-500 hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16}/> Remove from Queue</button>
+                                        <button onClick={() => { setEditingGameId(selectedGame.id); setNewGameTitle(selectedGame.title); setNewGameDesc(selectedGame.description); setNewGameImageUrl(selectedGame.imageUrl); setNewGameGenre(selectedGame.genre); setNewGameLink(selectedGame.link || ''); setIsGameModalOpen(true); }} className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-900 border border-gray-800 rounded-xl text-xs text-gray-400 hover:text-white transition-all hover:border-gray-600">
+                                            Edit Entry <Edit3 size={16}/>
+                                        </button>
+                                        <button onClick={() => handleDeleteGame(selectedGame.id)} className="w-full flex items-center justify-between px-4 py-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                                            Remove Game <Trash2 size={16}/>
+                                        </button>
                                     </div>
                                 )}
+                                <div className="p-5 bg-black/40 border border-gray-800 rounded-2xl space-y-3">
+                                    <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Proposed By</p>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-black text-[10px] text-primary italic">#</div>
+                                        <span className="text-[11px] font-black text-white italic truncate">{selectedGame.proposedBy === 'AI' ? 'Gemini AI' : (selectedGame.proposedBy || 'Anonymous')}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div className="p-8 bg-gray-900 border-t border-gray-800 flex items-center justify-between gap-6 shrink-0">
-                            <button onClick={() => handleVote(selectedGame.id)} className={`flex-1 py-4 rounded-2xl font-black text-xs tracking-widest flex items-center justify-center gap-3 transition-all ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white' : 'bg-white text-black hover:bg-gray-200'}`}>
-                                <ThumbsUp size={18} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
+                            <button onClick={() => handleVote(selectedGame.id)} className={`flex-1 py-5 rounded-2xl font-black text-xs tracking-[0.3em] uppercase flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white shadow-primary/30' : 'bg-white text-black hover:bg-gray-200 shadow-xl'}`}>
+                                <ThumbsUp size={20} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
                                 {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTED' : 'VOTE'}
                             </button>
-                            {selectedGame.link && <a href={selectedGame.link} target="_blank" rel="noreferrer" className="p-4 bg-surface border border-gray-800 text-white rounded-2xl"><ExternalLink size={20}/></a>}
+                            {selectedGame.link && <a href={selectedGame.link} target="_blank" rel="noreferrer" className="p-5 bg-surface border border-gray-800 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl"><ExternalLink size={24}/></a>}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal: Add Game Restaurado */}
+            {/* Modal: Add Game Restaurado y Mejorado */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-                    <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden">
+                    <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-8 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
-                            <h3 className="text-2xl font-black italic uppercase">{t('lobby.modalTitle')}</h3>
-                            <button onClick={closeModal} className="p-3 hover:bg-gray-800 rounded-2xl"><X size={24}/></button>
+                            <h3 className="text-2xl font-black italic uppercase tracking-tighter">{editingGameId ? 'Edit Game' : t('lobby.modalTitle')}</h3>
+                            <button onClick={closeModal} className="p-3 hover:bg-gray-800 rounded-2xl text-gray-500 hover:text-white transition-all"><X size={24}/></button>
                         </div>
-                        <div className="p-8 space-y-6">
-                            <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-5 py-4 text-sm font-black focus:border-primary outline-none" placeholder="Título..."/>
-                            <div className="grid grid-cols-2 gap-2">
-                                {Object.values(GameGenre).slice(0, 6).map(g => (
-                                    <button key={g} onClick={() => setNewGameGenre(g)} className={`px-3 py-3 rounded-xl text-[9px] font-black uppercase transition-all border ${newGameGenre === g ? 'bg-primary text-white border-primary' : 'bg-black/40 text-gray-500 border-gray-800'}`}>{t(`genre.${g}` as TranslationKey)}</button>
-                                ))}
+                        
+                        <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Game Title</label>
+                                <input type="text" value={newGameTitle} onChange={e => setNewGameTitle(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-6 py-4 text-sm font-black focus:border-primary outline-none transition-all placeholder:text-gray-700" placeholder="e.g. Minecraft, Halo..."/>
                             </div>
-                            <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-5 py-4 text-xs font-bold outline-none" placeholder="URL imagen..."/>
-                            <textarea value={newGameDesc} onChange={e => setNewGameDesc(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-xl px-5 py-4 text-xs h-24" placeholder="Descripción..."/>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Genre</label>
+                                <div className="relative">
+                                    <select 
+                                        value={newGameGenre} 
+                                        onChange={e => setNewGameGenre(e.target.value as GameGenre)} 
+                                        className="w-full appearance-none bg-black/50 border border-gray-800 rounded-2xl px-6 py-4 text-sm font-black focus:border-primary outline-none transition-all pr-12"
+                                    >
+                                        {Object.values(GameGenre).map(g => (
+                                            <option key={g} value={g}>{t(`genre.${g}` as TranslationKey)}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown size={20} className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Image URL (Direct Link)</label>
+                                <input type="text" value={newGameImageUrl} onChange={e => setNewGameImageUrl(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:border-primary transition-all placeholder:text-gray-800" placeholder="https://image-hosting.com/cover.jpg"/>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">External Link (Steam/Official)</label>
+                                <input type="text" value={newGameLink} onChange={e => setNewGameLink(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:border-primary transition-all placeholder:text-gray-800" placeholder="https://store.steampowered.com/app/..."/>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">Brief Description</label>
+                                <textarea value={newGameDesc} onChange={e => setNewGameDesc(e.target.value)} className="w-full bg-black/50 border border-gray-800 rounded-2xl px-6 py-4 text-[11px] h-28 font-bold outline-none focus:border-primary transition-all resize-none placeholder:text-gray-800" placeholder="Tell the squad why this game is worth playing..."/>
+                            </div>
                         </div>
+
                         <div className="p-8 bg-gray-900/60 flex gap-4 border-t border-gray-800">
-                            <button onClick={closeModal} className="flex-1 py-4 text-[10px] font-black text-gray-600 uppercase">Cancel</button>
-                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-4 bg-primary text-white rounded-xl text-[10px] font-black uppercase">{isUploading ? '...' : 'Save'}</button>
+                            <button onClick={closeModal} className="flex-1 py-4 text-[11px] font-black text-gray-600 uppercase tracking-widest hover:text-white transition-all">Cancel</button>
+                            <button onClick={handleSaveGame} disabled={isUploading || !newGameTitle} className="flex-1 py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 active:scale-95 transition-all">
+                                {isUploading ? <Loader2 className="animate-spin mx-auto" size={18}/> : 'Save Game'}
+                            </button>
                         </div>
                     </div>
                 </div>

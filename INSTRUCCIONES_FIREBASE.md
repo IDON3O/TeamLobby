@@ -1,20 +1,27 @@
 
 # 🔧 Configuración PERMANENTE de Firebase (Realtime Database)
 
-Para que los invitados puedan entrar y leer datos bajo la regla `auth != null`, debes habilitar la **Autenticación Anónima**.
+Si recibes el error `auth/admin-restricted-operation` al intentar entrar como invitado, significa que la **Autenticación Anónima** no está habilitada en tu consola de Firebase.
 
-### 1. Habilitar Proveedores de Autenticación
+### 1. Corregir Error de Invitados (CRUCIAL)
 
 1.  Ve a tu consola de Firebase: [https://console.firebase.google.com/](https://console.firebase.google.com/)
-2.  Entra en la sección **Authentication**.
-3.  Haz clic en la pestaña **Sign-in method**.
-4.  Asegúrate de tener habilitado:
-    *   **Google** (Para miembros de escuadra).
-    *   **Anónimo (Anonymous)** (Para invitados). **¡Este es Crucial!**
+2.  Entra en la sección **Authentication** en el menú lateral.
+3.  Haz clic en la pestaña superior **Sign-in method**.
+4.  Haz clic en el botón **"Añadir nuevo proveedor"** (Add new provider).
+5.  Busca **Anónimo** (Anonymous) en la lista.
+6.  Activa el interruptor a **Habilitar** (Enabled) y dale a **Guardar**.
+7.  **Refresca tu web** e intenta iniciar como invitado de nuevo.
 
-### 2. Reglas de Seguridad Permanentes
+### 2. Proveedores Recomendados
 
-Copia y pega estas reglas en la pestaña **Rules** de **Realtime Database**:
+Asegúrate de tener estos dos habilitados para el funcionamiento total:
+*   **Google**: Para que los usuarios reales guarden su progreso.
+*   **Anónimo**: Para que los invitados puedan ver las salas y votar sin crearse cuenta.
+
+### 3. Reglas de Seguridad de la Base de Datos
+
+En la sección **Realtime Database** -> pestaña **Rules**, pega esto para permitir acceso a ambos tipos de usuarios:
 
 ```json
 {
@@ -33,5 +40,5 @@ Copia y pega estas reglas en la pestaña **Rules** de **Realtime Database**:
 }
 ```
 
-### 3. ¿Por qué Anónimo?
-Sin autenticación anónima, los invitados no tienen un "token" de usuario, por lo que Firebase los bloquea al intentar leer cualquier dato bajo la regla `auth != null`. Al habilitarlo, Firebase les asigna un ID temporal permitiéndoles interactuar con la app de forma segura.
+---
+*Nota: Sin habilitar "Anonymous" en la consola, Firebase bloquea cualquier intento de login anónimo por seguridad, devolviendo el error 400 que ves en consola.*
