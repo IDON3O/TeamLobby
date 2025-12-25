@@ -9,11 +9,10 @@ import {
 } from 'lucide-react';
 import { Room, User, Game, GameGenre, Platform, ViewState, Comment } from '../types';
 import { 
-  subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, 
+  subscribeToRoom, addGameToRoom, voteForGame, sendChatMessage, subscribeToGlobalLibrary,
   toggleUserReadyState, removeGameFromRoom, addCommentToGame, updateGameInRoom, leaveRoomCleanly, cleanupRoomMembers,
   startReadyActivity, submitReadySuggestion, submitReadyVote, resolveReadyActivity, resetReadyActivity
 } from '../services/roomService';
-import { MOCK_GAMES } from '../constants';
 import Chat from '../components/Chat';
 import GameCard from '../components/GameCard';
 import { useLanguage, TranslationKey } from '../services/i18n';
@@ -40,6 +39,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [room, setRoom] = useState<Room | null>(null);
     const [view, setView] = useState<ViewState>('LOBBY');
     const [activeFilter, setActiveFilter] = useState<'ALL' | 'VOTED' | 'RECENT'>('ALL');
+    const [globalGames, setGlobalGames] = useState<Game[]>([]);
     
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -48,7 +48,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const [editingGameId, setEditingGameId] = useState<string | null>(null);
     const [newComment, setNewComment] = useState('');
 
-    // Game Form States
     const [newGameTitle, setNewGameTitle] = useState('');
     const [newGameGenre, setNewGameGenre] = useState<GameGenre>(GameGenre.ACTION);
     const [newGamePlatforms, setNewGamePlatforms] = useState<Platform[]>([Platform.PC]);
@@ -66,7 +65,8 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 if (!updatedRoom) { navigate('/'); return; }
                 setRoom(updatedRoom);
             });
-            return () => { unsub(); leaveRoomCleanly(code, currentUser.id); };
+            const unsubLib = subscribeToGlobalLibrary(setGlobalGames);
+            return () => { unsub(); unsubLib(); leaveRoomCleanly(code, currentUser.id); };
         }
     }, [code, navigate, currentUser.id]);
 
@@ -80,7 +80,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const handleLeave = () => { if (code) leaveRoomCleanly(code, currentUser.id); navigate('/'); };
     const handleVote = (id: string) => room && voteForGame(room.code, id, currentUser.id);
     const handleReady = () => room && toggleUserReadyState(room.code, currentUser.id);
-    
     const handleSendMsg = (txt: string) => {
         if (!room) return;
         sendChatMessage(room.code, { id: `${Date.now()}`, userId: currentUser.id, userName: currentUser.nickname || currentUser.alias, content: txt, timestamp: Date.now() });
@@ -191,7 +190,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
     const genres = Object.values(GameGenre);
     const visibleGenres = showAllGenres ? genres : genres.slice(0, 5);
 
-    // Resolve proposer name from ID
     const getProposerName = (id?: string) => {
         if (!id) return 'Anónimo';
         if (id === 'AI') return 'Gemini AI';
@@ -298,12 +296,15 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                                 <input type="text" placeholder="Search global library..." className="w-full bg-surface border border-gray-800 rounded-[2.5rem] py-5 pl-14 pr-6 outline-none focus:border-primary text-sm font-black tracking-widest shadow-xl"/>
                              </div>
                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                                {MOCK_GAMES.map(g => (
+                                {globalGames.map(g => (
                                     <div key={g.id} className="flex flex-col h-full group/item">
                                         <GameCard game={{...g, status: 'approved'}} currentUserId={currentUser.id} onVote={()=>{}} onOpenDetails={setSelectedGame} isVotingEnabled={false} />
                                         <button onClick={() => addGameToRoom(room.code, g, currentUser)} className="mt-4 w-full py-4 bg-gray-900 border border-gray-800 rounded-2xl text-[10px] font-black hover:bg-primary hover:text-white transition-all uppercase tracking-[0.2em]">Add to Queue</button>
                                     </div>
                                 ))}
+                                {globalGames.length === 0 && (
+                                    <div className="col-span-full py-20 text-center text-gray-600 font-black uppercase text-xs tracking-widest">Global Library is Empty</div>
+                                )}
                              </div>
                         </div>
                     ) : (
@@ -414,15 +415,12 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             </main>
 
-            {/* MODAL DETALLES REDISEÑADO (AHORA CON SCROLL COMPLETO) */}
             {selectedGame && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in">
                     <div className="bg-surface border border-gray-800 w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95">
                         <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 z-[60] p-3 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all border border-white/10 shadow-lg"><X size={24}/></button>
                         
-                        {/* Contenedor Principal con Scroll */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            {/* Imagen de Cabecera (Sube con el scroll) */}
                             <div className="relative w-full h-[220px] md:h-[320px] bg-gray-900">
                                 <div className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-125" style={{ backgroundImage: `url(${selectedGame.imageUrl})` }}/>
                                 <div className="relative w-full h-full flex items-center justify-center">
@@ -499,14 +497,21 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </div>
                         </div>
 
-                        {/* PIE DE PÁGINA (STICKY FOOTER) */}
                         <div className="p-6 md:p-8 bg-gray-900 border-t border-gray-800 flex flex-wrap items-center gap-4 shrink-0">
-                            <button onClick={() => handleVote(selectedGame.id)} className={`flex-1 min-w-[120px] py-4 rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white shadow-primary/30' : 'bg-white text-black hover:bg-gray-200 shadow-xl'}`}>
-                                <ThumbsUp size={18} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
-                                {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTADO' : 'VOTAR'}
-                            </button>
+                            {view === 'LOBBY' && (
+                                <button onClick={() => handleVote(selectedGame.id)} className={`flex-1 min-w-[120px] py-4 rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl ${selectedGame.votedBy?.includes(currentUser.id) ? 'bg-primary text-white shadow-primary/30' : 'bg-white text-black hover:bg-gray-200 shadow-xl'}`}>
+                                    <ThumbsUp size={18} className={selectedGame.votedBy?.includes(currentUser.id) ? 'fill-current' : ''}/>
+                                    {selectedGame.votedBy?.includes(currentUser.id) ? 'VOTADO' : 'VOTAR'}
+                                </button>
+                            )}
+                            
+                            {view === 'LIBRARY' && (
+                                <button onClick={() => addGameToRoom(room.code, selectedGame, currentUser)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-black text-xs tracking-[0.2em] uppercase flex items-center justify-center gap-3 shadow-xl active:scale-95">
+                                    <Plus size={18}/> AÑADIR A LA COLA
+                                </button>
+                            )}
 
-                            {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && (
+                            {(currentUser.isAdmin || selectedGame.proposedBy === currentUser.id) && view === 'LOBBY' && (
                                 <div className="flex gap-2">
                                     <button onClick={() => openEditModal(selectedGame)} className="p-4 bg-surface border border-gray-800 text-gray-400 hover:text-white rounded-2xl transition-all hover:bg-gray-800 shadow-xl" title="Editar">
                                         <Edit3 size={18}/>
@@ -527,7 +532,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* MODAL: AÑADIR/EDITAR JUEGO (MÁRGENES OPTIMIZADOS) */}
             {isGameModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
                     <div className="bg-surface border border-gray-700 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in-95">

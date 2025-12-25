@@ -22,6 +22,38 @@ export const updateSettings = async (settings: any) => {
     await db.ref(SETTINGS_REF).update(settings);
 };
 
+// --- GESTIÓN DE BIBLIOTECA GLOBAL ---
+export const subscribeToGlobalLibrary = (callback: (games: Game[]) => void) => {
+    if (!db) return () => {};
+    const ref = db.ref(GLOBAL_LIBRARY_REF);
+    const listener = ref.on('value', (snap) => {
+        if (snap.exists()) {
+            const data = snap.val();
+            const games = Object.values(data) as Game[];
+            callback(games);
+        } else {
+            callback([]);
+        }
+    });
+    return () => ref.off('value', listener);
+};
+
+export const addGameToGlobalLibrary = async (game: Game) => {
+    if (!db) return;
+    const gameId = game.id || `lib-${Date.now()}`;
+    await db.ref(`${GLOBAL_LIBRARY_REF}/${gameId}`).set({ ...game, id: gameId, status: 'approved' });
+};
+
+export const updateGlobalGame = async (gameId: string, data: Partial<Game>) => {
+    if (!db) return;
+    await db.ref(`${GLOBAL_LIBRARY_REF}/${gameId}`).update(data);
+};
+
+export const deleteGlobalGame = async (gameId: string) => {
+    if (!db) return;
+    await db.ref(`${GLOBAL_LIBRARY_REF}/${gameId}`).remove();
+};
+
 // --- GESTIÓN DE SALA ---
 export const cleanupRoomMembers = async (code: string) => {
     if (!db) return;
@@ -137,7 +169,6 @@ export const resolveReadyActivity = async (code: string) => {
     if (!snap.exists()) return;
     const session = snap.val() as ReadySession;
     
-    // SAFE FALLBACK: Evita el error de 'undefined' si no hay sugerencias o votos
     const suggestionsMap = session.suggestions || {};
     const votesMap = session.votes || {};
     const suggestions = Object.values(suggestionsMap);
@@ -152,11 +183,7 @@ export const resolveReadyActivity = async (code: string) => {
         await ref.update({ status: 'results', winner: winner.gameId });
     } else {
         const counts: Record<string, number> = {};
-        
-        // Inicializar contadores para todos los IDs de juegos propuestos
         suggestions.forEach(s => counts[s.gameId] = 0);
-        
-        // Contar votos
         Object.values(votesMap).forEach(gameId => {
             counts[gameId] = (counts[gameId] || 0) + 1;
         });
@@ -164,7 +191,6 @@ export const resolveReadyActivity = async (code: string) => {
         let max = 0;
         Object.values(counts).forEach(c => { if (c > max) max = c; });
         
-        // CORRECCIÓN DE EMPATES: Obtener IDs únicos para evitar duplicidad de títulos iguales
         const winnerIds = Array.from(new Set(
             suggestions
                 .filter(s => counts[s.gameId] === max)
