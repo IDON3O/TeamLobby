@@ -47,8 +47,12 @@ const AppContent: React.FC = () => {
       }
   };
 
-  const handleGuestLogin = () => {
-      setCurrentUser(createGuestUser());
+  const handleGuestLogin = async () => {
+      try {
+        await createGuestUser();
+      } catch (e) {
+        console.error("Guest Login Error:", e);
+      }
   };
 
   if (isAuthChecking) {

@@ -1,14 +1,20 @@
 
 # 🔧 Configuración PERMANENTE de Firebase (Realtime Database)
 
-Si tu periodo de prueba de 30 días ha terminado o recibes errores de acceso, debes actualizar las **Reglas de Seguridad** para que la base de datos sea permanente y solo accesible para tus usuarios.
+Para que los invitados puedan entrar y leer datos bajo la regla `auth != null`, debes habilitar la **Autenticación Anónima**.
 
-### 1. Actualizar Reglas de Seguridad
+### 1. Habilitar Proveedores de Autenticación
 
 1.  Ve a tu consola de Firebase: [https://console.firebase.google.com/](https://console.firebase.google.com/)
-2.  Entra en la sección **Realtime Database**.
-3.  Haz clic en la pestaña **Reglas** (Rules).
-4.  Borra todo el contenido actual y pega estas reglas permanentes (reemplazan las reglas de tiempo limitado):
+2.  Entra en la sección **Authentication**.
+3.  Haz clic en la pestaña **Sign-in method**.
+4.  Asegúrate de tener habilitado:
+    *   **Google** (Para miembros de escuadra).
+    *   **Anónimo (Anonymous)** (Para invitados). **¡Este es Crucial!**
+
+### 2. Reglas de Seguridad Permanentes
+
+Copia y pega estas reglas en la pestaña **Rules** de **Realtime Database**:
 
 ```json
 {
@@ -27,18 +33,5 @@ Si tu periodo de prueba de 30 días ha terminado o recibes errores de acceso, de
 }
 ```
 
-*Nota: Esto asegura que solo usuarios logueados lean/escriban, y que los usuarios solo puedan editar su propio perfil (a menos que seas admin).*
-
-5.  Haz clic en **Publicar**.
-
----
-
-### 2. Verificar URL de la Base de Datos
-
-Asegúrate de que en Vercel (o tu entorno local) tengas configurada la URL correcta:
-`VITE_FIREBASE_DATABASE_URL` = `https://tu-proyecto-id.firebaseio.com/` (Incluye el https y la barra final).
-
----
-
-### ¿Por qué se bloqueó mi base de datos?
-Firebase por defecto aplica reglas de "Modo de Prueba" que caducan a los 30 días para protegerte de cobros accidentales. Al usar `auth != null`, eliminamos esa fecha límite y aseguramos que solo la lógica de tu aplicación pueda interactuar con los datos de forma indefinida.
+### 3. ¿Por qué Anónimo?
+Sin autenticación anónima, los invitados no tienen un "token" de usuario, por lo que Firebase los bloquea al intentar leer cualquier dato bajo la regla `auth != null`. Al habilitarlo, Firebase les asigna un ID temporal permitiéndoles interactuar con la app de forma segura.
