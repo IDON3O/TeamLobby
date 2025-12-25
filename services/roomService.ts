@@ -79,11 +79,8 @@ export const subscribeToRoom = (code: string, callback: (room: Room) => void) =>
                 const items = Array.isArray(obj) ? obj : Object.values(obj);
                 return items.filter(i => i && typeof i === 'object');
             };
-            const membersList = parseCollection(data.members);
-            const uniqueMembersMap = new Map();
-            membersList.forEach((m: any) => { if (m?.id) uniqueMembersMap.set(m.id, m); });
             callback({ ...data, 
-                members: Array.from(uniqueMembersMap.values()), 
+                members: parseCollection(data.members), 
                 gameQueue: parseCollection(data.gameQueue), 
                 chatHistory: parseCollection(data.chatHistory) 
             });
@@ -139,7 +136,11 @@ export const resolveReadyActivity = async (code: string) => {
     const snap = await ref.once('value');
     if (!snap.exists()) return;
     const session = snap.val() as ReadySession;
-    const suggestions = Object.values(session.suggestions || {});
+    
+    // SAFE FALLBACK: Evita el error de 'undefined' si no hay sugerencias o votos
+    const suggestionsMap = session.suggestions || {};
+    const votesMap = session.votes || {};
+    const suggestions = Object.values(suggestionsMap);
     
     if (suggestions.length === 0) {
         await ref.update({ status: 'idle', active: false });
@@ -150,23 +151,23 @@ export const resolveReadyActivity = async (code: string) => {
         const winner = suggestions[Math.floor(Math.random() * suggestions.length)];
         await ref.update({ status: 'results', winner: winner.gameId });
     } else {
-        const votesMap = session.votes || {};
-        const suggestionsMap = session.suggestions || {};
         const counts: Record<string, number> = {};
         
-        Object.entries(votesMap).forEach(([voterId, gameId]) => {
-            if (suggestionsMap[voterId]?.gameId !== gameId) {
-                counts[gameId] = (counts[gameId] || 0) + 1;
-            }
+        // Inicializar contadores para todos los IDs de juegos propuestos
+        suggestions.forEach(s => counts[s.gameId] = 0);
+        
+        // Contar votos
+        Object.values(votesMap).forEach(gameId => {
+            counts[gameId] = (counts[gameId] || 0) + 1;
         });
         
         let max = 0;
-        suggestions.forEach(s => { if ((counts[s.gameId] || 0) > max) max = counts[s.gameId] || 0; });
+        Object.values(counts).forEach(c => { if (c > max) max = c; });
         
-        // CORRECCIÓN: Filtrar ganadores para que el array de IDs sea único (por si varios sugirieron lo mismo)
+        // CORRECCIÓN DE EMPATES: Obtener IDs únicos para evitar duplicidad de títulos iguales
         const winnerIds = Array.from(new Set(
             suggestions
-                .filter(s => (counts[s.gameId] || 0) === max)
+                .filter(s => counts[s.gameId] === max)
                 .map(s => s.gameId)
         ));
         

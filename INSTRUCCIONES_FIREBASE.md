@@ -1,25 +1,44 @@
-# 🔧 Configuración OBLIGATORIA de Firebase (Realtime Database)
 
-Para corregir los errores de guardado y hacer que el chat funcione sin pagar, usamos **Realtime Database**.
+# 🔧 Configuración PERMANENTE de Firebase (Realtime Database)
 
-### 1. Activar Realtime Database
+Si tu periodo de prueba de 30 días ha terminado o recibes errores de acceso, debes actualizar las **Reglas de Seguridad** para que la base de datos sea permanente y solo accesible para tus usuarios.
+
+### 1. Actualizar Reglas de Seguridad
 
 1.  Ve a tu consola de Firebase: [https://console.firebase.google.com/](https://console.firebase.google.com/)
-2.  Entra en tu proyecto.
-3.  En el menú lateral izquierdo, busca y haz clic en **Realtime Database**.
-    *   **OJO:** No confundir con "Firestore Database". Son distintos.
-4.  Haz clic en **Crear base de datos**.
-5.  **Ubicación de la base de datos:** Selecciona **Estados Unidos (us-central1)**.
-6.  **Reglas de seguridad:** IMPORTANTE: Selecciona **Comenzar en modo de prueba** (Start in Test Mode).
-7.  Haz clic en **Habilitar**.
+2.  Entra en la sección **Realtime Database**.
+3.  Haz clic en la pestaña **Reglas** (Rules).
+4.  Borra todo el contenido actual y pega estas reglas permanentes (reemplazan las reglas de tiempo limitado):
 
-¡Listo! Con esto tu aplicación guardará salas, chats e imágenes (como texto) totalmente gratis.
+```json
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "rooms": {
+      ".indexOn": ["createdAt"]
+    },
+    "users": {
+      "$uid": {
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('isAdmin').val() === true"
+      }
+    }
+  }
+}
+```
+
+*Nota: Esto asegura que solo usuarios logueados lean/escriban, y que los usuarios solo puedan editar su propio perfil (a menos que seas admin).*
+
+5.  Haz clic en **Publicar**.
 
 ---
 
-### ¡Importante para Vercel!
+### 2. Verificar URL de la Base de Datos
 
-Revisa que en tus variables de entorno en Vercel, la variable `VITE_FIREBASE_PROJECT_ID` coincida con el ID de tu proyecto.
+Asegúrate de que en Vercel (o tu entorno local) tengas configurada la URL correcta:
+`VITE_FIREBASE_DATABASE_URL` = `https://tu-proyecto-id.firebaseio.com/` (Incluye el https y la barra final).
 
-A veces Realtime Database necesita una variable extra llamada `VITE_FIREBASE_DATABASE_URL` en Vercel.
-Copia la URL que aparece en la cabecera de la sección "Datos" de Realtime Database (ej: `https://teamlobby-xyz.firebaseio.com/`) y agrégala a tus variables de entorno como `VITE_FIREBASE_DATABASE_URL`.
+---
+
+### ¿Por qué se bloqueó mi base de datos?
+Firebase por defecto aplica reglas de "Modo de Prueba" que caducan a los 30 días para protegerte de cobros accidentales. Al usar `auth != null`, eliminamos esa fecha límite y aseguramos que solo la lógica de tu aplicación pueda interactuar con los datos de forma indefinida.
