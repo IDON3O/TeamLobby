@@ -70,7 +70,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         }
     }, [code, navigate, currentUser.id]);
 
-    // Filtrado y Ordenado de Juegos
+    // Filtrado y Ordenado de Juegos (CORREGIDO)
     const filteredGames = useMemo(() => {
         if (!room?.gameQueue) return [];
         let list = [...room.gameQueue];
@@ -91,7 +91,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         return list;
     }, [room?.gameQueue, activeFilter]);
 
-    // Calcular Podio de Colaboradores (Sidebar) - Excluyendo autovoto
+    // Calcular Podio de Colaboradores (Sidebar) - Excluyendo autovoto y con pedestales anchos
     const contributorPodium = useMemo(() => {
         if (!room?.gameQueue || !room?.members) return [];
         const scores: Record<string, number> = {};
@@ -99,7 +99,6 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         room.gameQueue.forEach(game => {
             if (!game.proposedBy || game.proposedBy === 'AI') return;
             const proposerId = game.proposedBy;
-            // Solo contamos votos de otros usuarios
             const externalVotes = (game.votedBy || []).filter(voterId => voterId !== proposerId).length;
             scores[proposerId] = (scores[proposerId] || 0) + externalVotes;
         });
@@ -221,6 +220,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         setNewGameDesc(game.description);
         setNewGameImageUrl(game.imageUrl);
         setNewGameGenre(game.genre);
+        // Fix: Changed setNewLibLink to setNewGameLink as the former was not defined in this scope.
         setNewGameLink(game.link || '');
         setNewGamePlatforms(game.platforms || [Platform.PC]);
         setIsGameModalOpen(true);
@@ -271,50 +271,49 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* PODIO DE COLABORADORES REFORMADO */}
+                        {/* PODIO DE COLABORADORES (AJUSTE ESTÉTICO FINAL) */}
                         {contributorPodium.length > 0 && (
                             <div className="px-2 space-y-4 animate-in fade-in slide-in-from-left-4 duration-500">
                                 <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
                                     <Trophy size={12} className="text-yellow-500" />
-                                    <span>Top Contributors</span>
+                                    <span>Squad Leaders</span>
                                 </div>
-                                <div className="flex items-end justify-center gap-3 bg-black/40 rounded-[2.5rem] p-5 border border-gray-800/50 shadow-inner min-h-[140px]">
+                                <div className="flex items-end justify-center gap-3 bg-gray-900/30 rounded-2xl p-6 border border-gray-800/60 shadow-inner min-h-[140px]">
                                     {[1, 0, 2].map(idx => {
                                         const item = contributorPodium[idx];
-                                        if (!item) return <div key={idx} className="w-14 opacity-0" />;
+                                        if (!item) return <div key={idx} className="w-16 opacity-0" />;
                                         
                                         const isFirst = idx === 0;
-                                        const isSecond = idx === 1;
-                                        const isThird = idx === 2;
-
-                                        const rankColor = isFirst ? '#fbbf24' : isSecond ? '#94a3b8' : '#b45309';
-                                        const pedestalHeight = isFirst ? 'h-14' : isSecond ? 'h-10' : 'h-8';
+                                        const rankColor = isFirst ? '#fbbf24' : (idx === 1 ? '#94a3b8' : '#b45309');
+                                        const pedestalHeight = isFirst ? 'h-12' : (idx === 1 ? 'h-8' : 'h-6');
 
                                         return (
                                             <div key={item.member!.id} className="flex flex-col items-center group relative">
-                                                <div className="relative mb-[-4px] z-10 transition-transform group-hover:scale-110 duration-300">
+                                                {/* Avatar sobre la barra */}
+                                                <div className="relative mb-[-2px] z-10 transition-transform group-hover:translate-y-[-2px] duration-300">
                                                     <img 
                                                         src={item.member!.avatarUrl} 
-                                                        className="w-12 h-12 rounded-full border-4 shadow-xl" 
+                                                        className="w-12 h-12 rounded-full border-2 shadow-2xl" 
                                                         style={{borderColor: rankColor}} 
                                                     />
                                                     <div 
-                                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-lg border-2 border-surface"
+                                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-lg border border-background"
                                                         style={{backgroundColor: rankColor}}
                                                     >
                                                         {idx + 1}
                                                     </div>
                                                 </div>
+                                                {/* Barra Ancha (Pedestal Geométrico) */}
                                                 <div 
-                                                    className={`w-14 ${pedestalHeight} rounded-t-xl transition-all shadow-lg flex flex-col items-center justify-center`}
+                                                    className={`w-16 ${pedestalHeight} rounded-t-md transition-all shadow-lg flex flex-col items-center justify-center border-t-2`}
                                                     style={{
-                                                        background: `linear-gradient(to bottom, ${rankColor}dd, ${rankColor}33)`,
-                                                        borderTop: `2px solid ${rankColor}`
+                                                        background: `linear-gradient(to bottom, ${rankColor}44, ${rankColor}11)`,
+                                                        borderColor: rankColor
                                                     }}
                                                 >
-                                                    <span className="text-[10px] font-black text-white drop-shadow-md">{item.score}</span>
+                                                    <span className="text-[10px] font-black text-white drop-shadow-md opacity-80">{item.score}</span>
                                                 </div>
-                                                <span className="text-[7px] font-black text-gray-500 mt-1 uppercase truncate max-w-[56px] text-center">{item.member!.nickname || item.member!.alias}</span>
+                                                <span className="text-[7px] font-black text-gray-500 mt-2 uppercase truncate max-w-[64px] text-center opacity-60 group-hover:opacity-100">{item.member!.nickname || item.member!.alias}</span>
                                             </div>
                                         );
                                     })}
@@ -323,7 +322,7 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                         )}
 
                         <div className="space-y-2">
-                            <div className="px-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">SQUAD</div>
+                            <div className="px-2 text-[10px] font-black text-gray-600 uppercase tracking-widest">SQUAD MEMBERS</div>
                             {sortedMembers.map(m => (
                                 <div key={m.id} className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${m.isReady ? 'bg-green-500/10 border-green-500/30' : 'bg-black/20 border-gray-800'}`}>
                                     <img src={m.avatarUrl} className={`w-8 h-8 rounded-full border ${m.isReady ? 'border-green-500' : 'border-gray-800 grayscale'}`}/>
@@ -365,15 +364,17 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
                     {view === 'LOBBY' ? (
                         <div className="space-y-8 max-w-7xl mx-auto w-full pb-32">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            {/* SISTEMA DE FILTROS REAL */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-800 pb-6">
                                 <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
                                     <button onClick={() => setActiveFilter('ALL')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>A-Z</button>
                                     <button onClick={() => setActiveFilter('VOTED')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'VOTED' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>MÁS VOTADOS</button>
                                     <button onClick={() => setActiveFilter('RECENT')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'RECENT' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>RECIENTES</button>
                                 </div>
-                                <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest px-2">Total: {room.gameQueue.length} Juegos</div>
+                                <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest px-2">{room.gameQueue.length} Juegos en la cola</div>
                             </div>
                             
+                            {/* GRID DE JUEGOS SIN PODIO REPETITIVO */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in duration-500">
                                 {filteredGames.map(g => (
                                     <GameCard key={g.id} game={g} currentUserId={currentUser.id} onVote={handleVote} onOpenDetails={setSelectedGame} isVotingEnabled={true} />
