@@ -70,16 +70,28 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         }
     }, [code, navigate, currentUser.id]);
 
-    // Calcular Podio de Juegos (Área Principal)
-    const podiumGames = useMemo(() => {
+    // Filtrado y Ordenado de Juegos
+    const filteredGames = useMemo(() => {
         if (!room?.gameQueue) return [];
-        return [...room.gameQueue]
-            .filter(g => (g.votedBy?.length || 0) > 0)
-            .sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0))
-            .slice(0, 3);
-    }, [room?.gameQueue]);
+        let list = [...room.gameQueue];
+        
+        if (activeFilter === 'ALL') {
+            return list.sort((a, b) => a.title.localeCompare(b.title));
+        }
+        if (activeFilter === 'VOTED') {
+            return list.sort((a, b) => (b.votedBy?.length || 0) - (a.votedBy?.length || 0));
+        }
+        if (activeFilter === 'RECENT') {
+            return list.sort((a, b) => {
+                const timeA = a.id.includes('custom-') ? parseInt(a.id.split('-')[1]) : 0;
+                const timeB = b.id.includes('custom-') ? parseInt(b.id.split('-')[1]) : 0;
+                return timeB - timeA;
+            });
+        }
+        return list;
+    }, [room?.gameQueue, activeFilter]);
 
-    // Calcular Podio de Colaboradores (Sidebar)
+    // Calcular Podio de Colaboradores (Sidebar) - Excluyendo autovoto
     const contributorPodium = useMemo(() => {
         if (!room?.gameQueue || !room?.members) return [];
         const scores: Record<string, number> = {};
@@ -87,9 +99,9 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
         room.gameQueue.forEach(game => {
             if (!game.proposedBy || game.proposedBy === 'AI') return;
             const proposerId = game.proposedBy;
-            // Solo contamos votos de terceros (ignoramos el voto del propio autor)
-            const validVotes = (game.votedBy || []).filter(voterId => voterId !== proposerId).length;
-            scores[proposerId] = (scores[proposerId] || 0) + validVotes;
+            // Solo contamos votos de otros usuarios
+            const externalVotes = (game.votedBy || []).filter(voterId => voterId !== proposerId).length;
+            scores[proposerId] = (scores[proposerId] || 0) + externalVotes;
         });
 
         return Object.entries(scores)
@@ -259,46 +271,50 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
                             </button>
                         </nav>
 
-                        {/* PODIO DE COLABORADORES EN SIDEBAR */}
+                        {/* PODIO DE COLABORADORES REFORMADO */}
                         {contributorPodium.length > 0 && (
                             <div className="px-2 space-y-4 animate-in fade-in slide-in-from-left-4 duration-500">
                                 <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
                                     <Trophy size={12} className="text-yellow-500" />
                                     <span>Top Contributors</span>
                                 </div>
-                                <div className="flex items-end justify-around bg-black/40 rounded-[2rem] p-4 border border-gray-800/50 min-h-[120px] shadow-inner">
+                                <div className="flex items-end justify-center gap-3 bg-black/40 rounded-[2.5rem] p-5 border border-gray-800/50 shadow-inner min-h-[140px]">
                                     {[1, 0, 2].map(idx => {
                                         const item = contributorPodium[idx];
-                                        if (!item) return <div key={idx} className="w-8 opacity-0" />;
+                                        if (!item) return <div key={idx} className="w-14 opacity-0" />;
                                         
                                         const isFirst = idx === 0;
                                         const isSecond = idx === 1;
                                         const isThird = idx === 2;
 
                                         const rankColor = isFirst ? '#fbbf24' : isSecond ? '#94a3b8' : '#b45309';
-                                        const barHeight = isFirst ? 'h-20' : isSecond ? 'h-14' : 'h-10';
+                                        const pedestalHeight = isFirst ? 'h-14' : isSecond ? 'h-10' : 'h-8';
 
                                         return (
-                                            <div key={item.member!.id} className="flex flex-col items-center gap-2 group relative">
-                                                <div className="relative">
+                                            <div key={item.member!.id} className="flex flex-col items-center group relative">
+                                                <div className="relative mb-[-4px] z-10 transition-transform group-hover:scale-110 duration-300">
                                                     <img 
                                                         src={item.member!.avatarUrl} 
-                                                        className="w-10 h-10 rounded-full border-2 transition-all group-hover:scale-110 shadow-lg" 
+                                                        className="w-12 h-12 rounded-full border-4 shadow-xl" 
                                                         style={{borderColor: rankColor}} 
                                                     />
                                                     <div 
-                                                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-black text-white shadow-md border border-black/20"
+                                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-lg border-2 border-surface"
                                                         style={{backgroundColor: rankColor}}
                                                     >
                                                         {idx + 1}
                                                     </div>
                                                 </div>
                                                 <div 
-                                                    className={`w-3 ${barHeight} rounded-t-full transition-all group-hover:opacity-100 origin-bottom shadow-[0_0_10px_rgba(255,255,255,0.05)]`}
-                                                    style={{backgroundColor: rankColor}}
-                                                    title={`${item.score} puntos`}
-                                                />
-                                                <span className="text-[8px] font-black text-gray-600 group-hover:text-white transition-colors">{item.score}P</span>
+                                                    className={`w-14 ${pedestalHeight} rounded-t-xl transition-all shadow-lg flex flex-col items-center justify-center`}
+                                                    style={{
+                                                        background: `linear-gradient(to bottom, ${rankColor}dd, ${rankColor}33)`,
+                                                        borderTop: `2px solid ${rankColor}`
+                                                    }}
+                                                >
+                                                    <span className="text-[10px] font-black text-white drop-shadow-md">{item.score}</span>
+                                                </div>
+                                                <span className="text-[7px] font-black text-gray-500 mt-1 uppercase truncate max-w-[56px] text-center">{item.member!.nickname || item.member!.alias}</span>
                                             </div>
                                         );
                                     })}
@@ -348,70 +364,18 @@ const Lobby: React.FC<LobbyProps> = ({ currentUser }) => {
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
                     {view === 'LOBBY' ? (
-                        <div className="space-y-12 max-w-7xl mx-auto w-full pb-32">
-                            
-                            {/* PODIO DE JUEGOS MVP (OPCIONAL) */}
-                            {podiumGames.length > 0 && (
-                                <section className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-700">
-                                    <div className="flex items-center gap-3">
-                                        <Crown size={18} className="text-yellow-500 animate-bounce" />
-                                        <h3 className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em]">Hall of Fame: Games</h3>
-                                    </div>
-                                    <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-2">
-                                        {podiumGames[1] && (
-                                            <div onClick={() => setSelectedGame(podiumGames[1])} className="w-full md:w-1/4 h-32 md:h-48 bg-surface border-t-4 border-l-4 border-gray-500/30 rounded-t-[2rem] rounded-b-xl relative overflow-hidden group cursor-pointer transition-all hover:translate-y-[-4px] order-2 md:order-1">
-                                                <div className="absolute inset-0 bg-cover bg-center opacity-20 grayscale" style={{ backgroundImage: `url(${podiumGames[1].imageUrl})` }} />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
-                                                <div className="absolute top-4 left-4 flex items-center gap-2">
-                                                    <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center font-black text-[10px] text-white">2</div>
-                                                    <Medal size={14} className="text-gray-400"/>
-                                                </div>
-                                                <div className="absolute bottom-4 left-6 right-6">
-                                                    <p className="text-[9px] font-black text-primary uppercase mb-1">{podiumGames[1].votedBy?.length} VOTOS</p>
-                                                    <h4 className="text-xs font-black text-white uppercase italic truncate">{podiumGames[1].title}</h4>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {podiumGames[0] && (
-                                            <div onClick={() => setSelectedGame(podiumGames[0])} className="w-full md:w-1/3 h-48 md:h-64 bg-surface border-t-8 border-primary rounded-t-[3rem] rounded-b-2xl relative overflow-hidden group cursor-pointer transition-all hover:scale-[1.02] z-10 shadow-2xl shadow-primary/10 order-1 md:order-2">
-                                                <div className="absolute inset-0 bg-cover bg-center opacity-40 group-hover:scale-110 transition-transform duration-1000" style={{ backgroundImage: `url(${podiumGames[0].imageUrl})` }} />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
-                                                <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                                                    <Crown size={32} className="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)] mb-2" />
-                                                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center font-black text-lg text-white shadow-xl">1</div>
-                                                </div>
-                                                <div className="absolute bottom-8 left-8 right-8 text-center">
-                                                    <div className="inline-block bg-primary text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 shadow-lg">{podiumGames[0].votedBy?.length} VOTOS</div>
-                                                    <h4 className="text-xl font-black text-white uppercase italic tracking-tighter drop-shadow-lg">{podiumGames[0].title}</h4>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {podiumGames[2] && (
-                                            <div onClick={() => setSelectedGame(podiumGames[2])} className="w-full md:w-1/4 h-28 md:h-40 bg-surface border-t-4 border-r-4 border-amber-800/30 rounded-t-[2rem] rounded-b-xl relative overflow-hidden group cursor-pointer transition-all hover:translate-y-[-4px] order-3">
-                                                <div className="absolute inset-0 bg-cover bg-center opacity-10 grayscale sepia" style={{ backgroundImage: `url(${podiumGames[2].imageUrl})` }} />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
-                                                <div className="absolute top-4 right-4 flex items-center gap-2">
-                                                    <div className="w-6 h-6 bg-amber-800 rounded-full flex items-center justify-center font-black text-[10px] text-white">3</div>
-                                                    <Medal size={14} className="text-amber-700"/>
-                                                </div>
-                                                <div className="absolute bottom-4 left-6 right-6">
-                                                    <p className="text-[9px] font-black text-primary uppercase mb-1">{podiumGames[2].votedBy?.length} VOTOS</p>
-                                                    <h4 className="text-xs font-black text-white uppercase italic truncate">{podiumGames[2].title}</h4>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-                            )}
-
-                            <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
-                                {['ALL', 'VOTED', 'RECENT'].map(f => (
-                                    <button key={f} onClick={() => setActiveFilter(f as any)} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === f ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>{f}</button>
-                                ))}
+                        <div className="space-y-8 max-w-7xl mx-auto w-full pb-32">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div className="flex p-1 bg-black/40 border border-gray-800 rounded-xl w-fit">
+                                    <button onClick={() => setActiveFilter('ALL')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'ALL' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>A-Z</button>
+                                    <button onClick={() => setActiveFilter('VOTED')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'VOTED' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>MÁS VOTADOS</button>
+                                    <button onClick={() => setActiveFilter('RECENT')} className={`px-5 py-2 rounded-lg text-[10px] font-black transition-all ${activeFilter === 'RECENT' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}>RECIENTES</button>
+                                </div>
+                                <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest px-2">Total: {room.gameQueue.length} Juegos</div>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                                {room.gameQueue.map(g => (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 animate-in fade-in duration-500">
+                                {filteredGames.map(g => (
                                     <GameCard key={g.id} game={g} currentUserId={currentUser.id} onVote={handleVote} onOpenDetails={setSelectedGame} isVotingEnabled={true} />
                                 ))}
                                 {room.gameQueue.length === 0 && (
